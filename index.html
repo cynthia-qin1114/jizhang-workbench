@@ -263,6 +263,22 @@
     *{animation-duration:.001ms!important;animation-delay:0!important;transition-duration:.001ms!important}
     .card{opacity:1!important}
   }
+
+  /* 智能识别：内嵌可折叠面板，风格与卡片一致 */
+  .smartfold{border:1px solid var(--line);
+    background:linear-gradient(180deg,#181826,#14141f);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.5), 0 10px 30px -22px rgba(0,0,0,.85);
+    border-radius:16px;padding:0;margin-bottom:16px;overflow:hidden}
+  .smartfold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;
+    padding:16px 18px;font-weight:650;font-size:15px;color:var(--ink);user-select:none}
+  .smartfold>summary::-webkit-details-marker{display:none}
+  .smartfold>summary svg{width:18px;height:18px;color:var(--primary);flex:none}
+  .smartfold>summary .mini{margin-left:auto;font-weight:500;color:var(--sub)}
+  .smartfold>summary::after{content:"▾";color:var(--sub);transition:transform .2s var(--ease);font-size:14px}
+  .smartfold[open]>summary::after{transform:rotate(180deg)}
+  .smartfold>summary:hover{color:var(--primary)}
+  .smartfold .smartbody{padding:0 18px 18px;border-top:1px solid var(--line-soft)}
+  .smartfold .smartbody .note{margin-top:10px}
 </style>
 </head>
 <body>
@@ -295,7 +311,6 @@
     <button data-view="txn" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>收支记账</button>
     <button data-view="asset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg>资产收益</button>
     <button data-view="budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>月度预算</button>
-    <button data-view="smart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="M12 8a4 4 0 0 0 4 4 4 4 0 0 0-4 4 4 4 0 0 0-4-4 4 4 0 0 0 4-4z"/></svg>智能录入</button>
   </nav>
 
   <!-- 视图：收支记账 -->
@@ -319,6 +334,27 @@
         <div class="field" style="flex:none"><button class="btn primary" id="btnAddTxn" style="width:100%">添加</button></div>
       </div>
     </div>
+
+    <details class="smartfold" id="txnSmartFold">
+      <summary>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="M12 8a4 4 0 0 0 4 4 4 4 0 0 0-4 4 4 4 0 0 0-4-4 4 4 0 0 0 4-4z"/></svg>
+        智能识别账单
+        <span class="mini">粘贴短信 / 上传截图，自动填好「记一笔」</span>
+      </summary>
+      <div class="smartbody">
+        <div class="field" style="margin-top:4px"><label>① 粘贴短信 / 账单文本</label>
+          <textarea id="txnSmartText" rows="3" placeholder="例如：您尾号9278的储蓄卡8月10日14:30消费RMB86.00，余额…" style="width:100%;font-size:16px;padding:10px 12px;resize:vertical;font-family:inherit"></textarea>
+        </div>
+        <div class="form-row" style="margin-top:8px">
+          <div class="field" style="flex:2;min-width:200px"><label>② 或上传截图（OCR）</label><input type="file" id="txnOcrFile" accept="image/*"></div>
+          <div class="field" style="flex:none"><button class="btn primary" id="txnBtnSmart" style="width:100%">智能识别</button></div>
+        </div>
+        <div id="txnOcrRaw" style="margin-top:8px"></div>
+        <div class="note">⚠️ 截图识别依赖 Tesseract.js（首次需联网下载），中文识别准确率有限，结果务必核对。</div>
+        <div id="txnSmartPreview" style="margin-top:10px"></div>
+      </div>
+    </details>
+
     <div class="card">
       <h2>收支明细 <span class="tag" id="txnCount">0 笔</span></h2>
       <div class="scroll">
@@ -336,6 +372,26 @@
 
   <!-- 视图：资产收益 -->
   <section class="view" id="view-asset">
+    <details class="smartfold" id="astSmartFold">
+      <summary>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="M12 8a4 4 0 0 0 4 4 4 4 0 0 0-4 4 4 4 0 0 0-4-4 4 4 0 0 0 4-4z"/></svg>
+        智能识别资产
+        <span class="mini">粘贴持仓 / 截图，自动填好对应表单</span>
+      </summary>
+      <div class="smartbody">
+        <div class="field" style="margin-top:4px"><label>① 粘贴文本（持仓短信 / 基金代码 / 截图文字）</label>
+          <textarea id="astSmartText" rows="3" placeholder="例如：基金代码 000051；或「尾号2406活期余额 128000」；或「黄金 50 克 金价 560」" style="width:100%;font-size:16px;padding:10px 12px;resize:vertical;font-family:inherit"></textarea>
+        </div>
+        <div class="form-row" style="margin-top:8px">
+          <div class="field" style="flex:2;min-width:200px"><label>② 或上传截图（OCR）</label><input type="file" id="astOcrFile" accept="image/*"></div>
+          <div class="field" style="flex:none"><button class="btn primary" id="astBtnSmart" style="width:100%">智能识别</button></div>
+        </div>
+        <div id="astOcrRaw" style="margin-top:8px"></div>
+        <div class="note">⚠️ 截图识别依赖 Tesseract.js（首次需联网下载），中文识别准确率有限，结果务必核对。</div>
+        <div id="astSmartPreview" style="margin-top:10px"></div>
+      </div>
+    </details>
+
     <div class="card">
       <h2>资产总览</h2>
       <div class="grid2" id="assetStats"></div>
@@ -445,24 +501,6 @@
     </div>
   </section>
 
-  <!-- 视图：智能录入 -->
-  <section class="view" id="view-smart">
-    <div class="card">
-      <h2>智能录入 <span class="tag">截图 + 短信</span></h2>
-      <p class="note">一个入口搞定：粘贴银行 / 支付宝 / 微信短信，或上传基金 / 理财 / 账单截图。系统自动识别金额、日期、收支类型或基金代码，先预览再入账。纯本地正则解析，文本不上传服务器。</p>
-      <div class="field" style="margin-top:8px"><label>① 粘贴短信 / 账单文本</label>
-        <textarea id="smartText" rows="3" placeholder="例如：您尾号9278的储蓄卡8月10日14:30消费RMB86.00，余额…" style="width:100%;font-size:16px;padding:10px 12px;resize:vertical;font-family:inherit"></textarea>
-      </div>
-      <div class="form-row" style="margin-top:6px">
-        <div class="field" style="flex:2;min-width:200px"><label>② 或上传截图（OCR）</label><input type="file" id="ocrFile" accept="image/*"></div>
-        <div class="field" style="flex:none"><button class="btn primary" id="btnSmart" style="width:100%">智能识别</button></div>
-      </div>
-      <div id="ocrRaw" style="margin-top:8px"></div>
-      <div class="note">⚠️ 截图识别依赖 Tesseract.js（云端引擎，首次需联网下载），中文识别准确率有限，结果务必人工核对。</div>
-      <div id="smartPreview" style="margin-top:10px"></div>
-    </div>
-  </section>
-
   <!-- 数据管理：非常用操作，置于页面底部 -->
   <section class="datamgr">
     <div class="datamgr-head">
@@ -483,7 +521,6 @@
   <button data-view="txn" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>记账</button>
   <button data-view="asset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg>资产</button>
     <button data-view="budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>预算</button>
-    <button data-view="smart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="M12 8a4 4 0 0 0 4 4 4 4 0 0 0-4 4 4 4 0 0 0-4-4 4 4 0 0 0 4-4z"/></svg>智能</button>
 </nav>
 
 <div id="toast"></div>
@@ -1072,12 +1109,14 @@ function parseBankSms(text){
   res.note=t.replace(/\s+/g,' ').trim().slice(0,40);
   return res;
 }
-/* ============ 智能录入（短信 + 截图 OCR 统一入口） ============ */
-async function smartRecognize(){
-  const file=document.getElementById('ocrFile').files[0];
-  const textEl=document.getElementById('smartText');
-  const rawBox=document.getElementById('ocrRaw');
-  const box=document.getElementById('smartPreview');
+/* ============ 智能识别（内嵌到各添加场景：记账 / 资产） ============ */
+/* prefix: 'txn'（收支记账视图内）→ 解析账单直接预填「记一笔」；'ast'（资产视图内）→ 识别基金/理财/活期/黄金并预填对应表单 */
+async function smartRecognize(prefix){
+  const fileEl=document.getElementById(prefix+'OcrFile');
+  const textEl=document.getElementById(prefix+'SmartText');
+  const rawBox=document.getElementById(prefix+'OcrRaw');
+  const box=document.getElementById(prefix+'SmartPreview');
+  const file=fileEl.files[0];
   let text=textEl.value.trim();
   if(file){
     rawBox.innerHTML='<div class="mini">识别中…（首次需联网下载识别引擎，请稍候）</div>';
@@ -1092,28 +1131,38 @@ async function smartRecognize(){
     }catch(e){rawBox.innerHTML='<div class="note">识别失败：'+esc(e.message)+'</div>';return;}
   }
   if(!text){box.innerHTML='<div class="note">请先粘贴短信 / 账单文本，或上传截图。</div>';return;}
-  renderSmartPreview(text,box,textEl);
+  if(prefix==='txn')renderTxnSmart(text,box,textEl);
+  else renderAssetSmart(text,box,textEl);
 }
-function renderSmartPreview(text,box,textEl){
+/* 记账视图：账单文本 → 直接预填「记一笔」表单（日期/类型/分类/金额/备注） */
+function renderTxnSmart(text,box,textEl){
   const r=parseBankSms(text);
+  if(r.amount>0){
+    document.getElementById('txnDate').value=r.date||todayStr();
+    document.getElementById('txnAmount').value=r.amount;
+    document.getElementById('txnNote').value=r.note||'';
+    const ty=(r.type==='in')?'in':'out';
+    txnType=ty;
+    document.querySelectorAll('#txnType button').forEach(b=>b.classList.toggle('on',b.dataset.t===ty));
+    const sel=document.getElementById('txnCat');
+    sel.value=[...sel.options].some(o=>o.value===r.cat)?r.cat:'其他';
+    box.innerHTML=`<div class="card" style="margin-top:12px;background:var(--soft)">
+      <div class="row-between"><b>已识别账单</b><span class="mini">已填入上方「记一笔」，核对后点添加</span></div>
+      <div class="mini" style="margin-top:6px;line-height:1.7">${esc(r.note)||'（无备注）'} ｜ ${r.type==='in'?'收入':'支出'} ｜ ${esc(r.cat)} ｜ <b style="color:var(--ink)">${fmt(r.amount)}</b></div>
+    </div>`;
+    toast('已智能填入「记一笔」，请核对后添加');
+  }else{
+    box.innerHTML='<div class="note">未识别到明确金额，请确认文本或手动录入。</div>';
+  }
+}
+/* 资产视图：识别基金代码 / 理财 / 活期 / 黄金 → 预填对应表单（无需跳转） */
+function renderAssetSmart(text,box,textEl){
   const codeM=text.match(/\b(\d{6})\b/);
   const ast=detectAsset(text);
   let html='';
-  if(r.amount>0){
-    html+=`<div class="card" style="margin-top:12px;background:var(--soft)">
-      <div class="row-between"><b>账单解析预览</b><span class="mini">请核对后入账</span></div>
-      <div class="form-row" style="margin-top:8px">
-        <div class="field"><label>日期</label><input type="date" id="spDate" value="${r.date}"></div>
-        <div class="field"><label>类型</label><select id="spType"><option value="out"${r.type==='out'?' selected':''}>支出</option><option value="in"${r.type==='in'?' selected':''}>收入</option></select></div>
-        <div class="field"><label>分类</label><input type="text" id="spCat" value="${esc(r.cat)}"></div>
-        <div class="field"><label>金额</label><input type="number" id="spAmount" value="${r.amount}" step="0.01"></div>
-      </div>
-      <div style="margin-top:8px"><button class="btn primary" id="spAdd">确认入账</button></div>
-    </div>`;
-  }
   if(codeM){
-    html+=`<div class="card" style="margin-top:10px;background:var(--soft)"><b>识别到基金代码 ${esc(codeM[1])}</b>
-      <div style="margin-top:8px"><button class="btn" id="ocFund">填入「添加基金」表单</button></div></div>`;
+    html+=`<div class="card" style="margin-top:12px;background:var(--soft)"><b>识别到基金代码 ${esc(codeM[1])}</b>
+      <div style="margin-top:8px"><button class="btn" id="ocFund">填入「基金持仓」表单</button></div></div>`;
   }
   if(ast.deposit){
     html+=`<div class="card" style="margin-top:10px;background:var(--soft)"><b>识别到活期存款</b><div class="mini">${esc(ast.deposit.name)} 余额 ${fmt(ast.deposit.balance)}</div>
@@ -1127,23 +1176,19 @@ function renderSmartPreview(text,box,textEl){
     html+=`<div class="card" style="margin-top:10px;background:var(--soft)"><b>识别到理财</b><div class="mini">本金 ${fmt(ast.wealth.principal)}</div>
       <div style="margin-top:8px"><button class="btn" id="ocWealth2">填入「理财持仓」表单</button></div></div>`;
   }
-  if(!r.amount&&!codeM&&!ast.deposit&&!ast.gold&&!ast.wealth)html+='<div class="note">未识别到明确金额、基金代码或资产信息，请补充文本或手动录入。</div>';
+  if(!codeM&&!ast.deposit&&!ast.gold&&!ast.wealth)html+='<div class="note">未识别到基金代码或资产信息，请补充文本或手动录入。</div>';
   box.innerHTML=html;
-  const sa=document.getElementById('spAdd');
-  if(sa)sa.onclick=()=>{const amt=Number(document.getElementById('spAmount').value)||0;if(!amt){toast('金额为空');return;}
-    state.txns.push({id:uid(),date:document.getElementById('spDate').value||todayStr(),type:document.getElementById('spType').value,cat:document.getElementById('spCat').value||'其他',amount:amt,note:r.note});
-    save();renderTxn();renderToday();renderBudget();renderDataBanner();
-    box.innerHTML='';if(textEl)textEl.value='';toast('已入账');};
   const of=document.getElementById('ocFund');
-  if(of)of.onclick=()=>{document.getElementById('fundCode').value=codeM[1];switchView('asset');toast('已填入基金代码，请补全份额与成本净值');box.innerHTML='';};
+  if(of)of.onclick=()=>{document.getElementById('fundCode').value=codeM[1];document.getElementById('fundCode').focus();box.innerHTML='';toast('已填入基金代码，请补全份额与成本净值');};
   const od=document.getElementById('ocDeposit');
-  if(od)od.onclick=()=>{document.getElementById('depName').value=ast.deposit.name;document.getElementById('depBalance').value=ast.deposit.balance;if(ast.deposit.bank)document.getElementById('depBank').value=ast.deposit.bank;switchView('asset');toast('已填入活期存款，可补全后点添加');box.innerHTML='';};
+  if(od)od.onclick=()=>{document.getElementById('depName').value=ast.deposit.name;document.getElementById('depBalance').value=ast.deposit.balance;if(ast.deposit.bank)document.getElementById('depBank').value=ast.deposit.bank;box.innerHTML='';toast('已填入活期存款，可补全后点添加');};
   const og=document.getElementById('ocGold');
-  if(og)og.onclick=()=>{if(ast.gold.grams)document.getElementById('gGrams').value=ast.gold.grams;if(ast.gold.price)document.getElementById('gPrice').value=ast.gold.price;document.getElementById('gName').value=ast.gold.name;switchView('asset');toast('已填入黄金投资，请补全成本金价后点添加');box.innerHTML='';};
+  if(og)og.onclick=()=>{if(ast.gold.grams)document.getElementById('gGrams').value=ast.gold.grams;if(ast.gold.price)document.getElementById('gPrice').value=ast.gold.price;document.getElementById('gName').value=ast.gold.name;box.innerHTML='';toast('已填入黄金投资，请补全成本金价后点添加');};
   const ow=document.getElementById('ocWealth2');
-  if(ow)ow.onclick=()=>{document.getElementById('wPrincipal').value=ast.wealth.principal;switchView('asset');toast('已填入理财本金，请补全名称后点添加');box.innerHTML='';};
+  if(ow)ow.onclick=()=>{document.getElementById('wPrincipal').value=ast.wealth.principal;box.innerHTML='';toast('已填入理财本金，请补全名称后点添加');};
 }
-document.getElementById('btnSmart').onclick=smartRecognize;
+document.getElementById('txnBtnSmart').onclick=()=>smartRecognize('txn');
+document.getElementById('astBtnSmart').onclick=()=>smartRecognize('ast');
 
 /* ============ 截图 OCR（Tesseract.js，按需从 CDN 加载） ============ */
 function loadTesseract(){
