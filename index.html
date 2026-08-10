@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>记账工作台</title>
+<style>
+  :root{
+    --bg:#0d0d18;
+    --card:#15151f;
+    --ink:#ecebf5;
+    --sub:#9b9bb6;
+    --line:#2a2a3a;
+    --primary:#a78bfa;
+    --primary-d:#7c3aed;
+    --red:#f0818f;
+    --green:#b39dfb;
+    --soft:#191924;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 6px 20px -10px rgba(0,0,0,.5);
+    --radius:16px;
+    --surface-2:#1c1c2b;
+    --line-soft:#22222f;
+    --primary-soft:rgba(139,92,246,.18);
+    --gold:#c4b5fd;
+    --warn:#f0b45a;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.5);
+    --ease:cubic-bezier(0.22,1,0.36,1);
+    --ease-out:cubic-bezier(0.16,1,0.3,1);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--ink); font-size:15px; line-height:1.5;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:16px 16px 96px}
+  header.app{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    flex-wrap:wrap;margin-bottom:14px;
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{width:40px;height:40px;border-radius:12px;background:var(--primary);display:flex;align-items:center;justify-content:center}
+  .brand h1{font-size:19px;margin:0;font-weight:700}
+  .brand p{margin:0;font-size:12px;color:var(--sub)}
+  .head-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{
+    border:none;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer;
+    background:var(--soft);color:var(--primary-d);font-weight:600;min-height:44px;
+    display:inline-flex;align-items:center;gap:6px;transition:.15s;
+  }
+  .btn:hover{filter:brightness(.97)}
+  .btn.primary{background:var(--primary);color:#fff}
+  .btn.primary:hover{background:var(--primary-d)}
+  .btn.danger{background:#fef2f2;color:var(--red)}
+  .btn.ghost{background:transparent;color:var(--sub);border:1px solid var(--line)}
+  .btn svg{width:16px;height:16px}
+  .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+  .card h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .card h2 .tag{font-size:11px;font-weight:600;color:var(--primary-d);background:var(--soft);padding:2px 8px;border-radius:20px}
+  /* 今天要处理 */
+  .today{background:linear-gradient(135deg,#fff7ed,#fffbeb);border:1px solid #fde68a}
+  .today h2{color:#b45309}
+  .todo{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed #fcd34d}
+  .todo:last-child{border-bottom:none}
+  .todo .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .todo .txt{flex:1;font-size:14px}
+  .todo .txt b{display:block;font-size:13px;color:#92400e}
+  .todo .act{flex:none}
+  .todo .act .btn{min-height:38px;padding:8px 12px;font-size:13px}
+  /* 表单 */
+  .form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px}
+  .field label{font-size:12px;color:var(--sub)}
+  input,select{
+    font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    background:#fff;color:var(--ink);width:100%;min-height:44px;
+  }
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{border:none;background:#fff;padding:10px 16px;font-size:15px;cursor:pointer;min-height:44px;color:var(--sub)}
+  .seg button.on{background:var(--primary);color:#fff;font-weight:600}
+  /* 表格 */
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{width:100%;border-collapse:collapse;font-size:14px;min-width:420px}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--sub);font-weight:600;font-size:12px}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .out{color:var(--red);font-weight:600}
+  .in{color:var(--green);font-weight:600}
+  .mini{font-size:12px;color:var(--sub)}
+  .del{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:6px}
+  /* 看板 */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .stat{display:flex;flex-direction:column;gap:2px;padding:12px;border-radius:12px;background:var(--soft)}
+  .stat .k{font-size:12px;color:var(--sub)}
+  .stat .v{font-size:20px;font-weight:700}
+  .chartbox{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .legend{display:flex;flex-direction:column;gap:6px;font-size:13px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .syncbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .note{font-size:12px;color:var(--sub);background:#f8fafc;border:1px dashed var(--line);padding:8px 10px;border-radius:10px;margin-top:8px}
+  .banner{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  /* 导航 */
+  nav.top{display:flex;gap:8px;margin-bottom:14px;background:var(--card);padding:6px;border-radius:12px;box-shadow:var(--shadow)}
+  nav.top button{flex:1;border:none;background:transparent;padding:10px;font-size:14px;font-weight:600;color:var(--sub);border-radius:9px;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+  nav.top button.on{background:var(--primary);color:#fff}
+  nav.top button svg{width:18px;height:18px}
+  .view{display:none}
+  .view.active{display:block}
+  .bottomnav{display:none}
+  @media(max-width:768px){
+    .grid2{grid-template-columns:1fr}
+    nav.top{display:none}
+    .bottomnav{
+      display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--card);
+      border-top:1px solid var(--line);padding:6px 6px env(safe-area-inset-bottom);
+      box-shadow:0 -2px 10px rgba(0,0,0,.06);z-index:30;
+    }
+    .bottomnav button{flex:1;border:none;background:transparent;color:var(--sub);
+      font-size:12px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+    .bottomnav button.on{color:var(--primary)}
+    .bottomnav button svg{width:22px;height:22px}
+    .wrap{padding-bottom:96px}
+  }
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#111827;color:#fff;
+    padding:10px 18px;border-radius:24px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:50;max-width:90%}
+  #toast.show{opacity:.95}
+  .empty{color:var(--sub);font-size:14px;text-align:center;padding:20px}
+  .row-between{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+
+  /* ============ 视觉方向 B · 靛蓝紫暗色（克制 · 和谐 · 高级层次） ============ */
+  /* 深色保留；主色=克制靛蓝紫（非霓虹），中性全改冷调求和谐；
+     层次用「发丝上高光 + 柔和多层投影 + 同色系紫渐变」，暖色仅保留玫瑰(亏损)与琥珀(提醒)两个语义点 */
+  :root{
+    --bg:#0d0d18;
+    --card:#15151f;
+    --surface-2:#1c1c2b;
+    --ink:#ecebf5;
+    --sub:#9b9bb6;
+    --line:#2a2a3a;
+    --line-soft:#22222f;
+    --primary:#a78bfa;          /* 紫罗兰，主色（更紫） */
+    --primary-d:#7c3aed;        /* 深紫，渐变端 */
+    --primary-soft:rgba(139,92,246,.18);
+    --gold:#c4b5fd;             /* 浅紫品牌点缀 */
+    --red:#f0818f;              /* 支出/亏损：柔和玫瑰（唯一暖色：亏损语义） */
+    --green:#b39dfb;            /* 收入/收益：浅紫罗兰（money in，同色族） */
+    --warn:#f0b45a;             /* 今天要处理：暖琥珀（唯一暖色：提醒语义） */
+    --soft:#191924;
+  }
+  body{
+    background:linear-gradient(180deg,#0f0f1c 0%,#0a0a12 100%);
+    color:var(--ink);
+  }
+  .wrap{padding-top:20px}
+  header.app{position:relative;padding-bottom:14px;margin-bottom:18px}
+  header.app::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--line-soft) 16%,var(--line-soft) 84%,transparent);opacity:.55}
+  .brand .logo{
+    width:44px;height:44px;border-radius:14px;
+    background:linear-gradient(150deg,#b794f6,#7c3aed);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 4px 12px -6px rgba(0,0,0,.45);
+  }
+  .brand .logo::after{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.12)}
+  .brand h1{font-size:19px;font-weight:650;letter-spacing:.2px}
+  .brand p{color:var(--sub);font-size:11.5px;margin-top:2px}
+
+  /* 按钮：主按钮紫渐变 + 发丝高光 + 柔紫投影；次级 ghost 冷边 */
+  .btn{border-radius:10px;
+    background:transparent;color:var(--sub);border:1px solid var(--line);
+    transition:background .18s var(--ease),border-color .18s,color .18s,transform .12s,box-shadow .18s}
+  .btn:hover{background:var(--surface-2);color:var(--ink);border-color:var(--line-soft)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:linear-gradient(180deg,#b794f6,#7c3aed);color:#0c0c1a;border:1px solid var(--primary-d);font-weight:650;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 6px 16px -8px rgba(139,92,246,.5)}
+  .btn.primary:hover{filter:brightness(1.06);color:#0c0c1a}
+  .btn.ghost{background:transparent;color:var(--sub);border:1px solid var(--line)}
+  .btn.ghost:hover{background:var(--surface-2);color:var(--ink)}
+  .btn.danger{background:rgba(240,129,143,.12);color:var(--red);border:1px solid rgba(240,129,143,.30)}
+  .btn.danger:hover{background:rgba(240,129,143,.18)}
+  .btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+
+  /* 卡片：冷面 + 发丝上高光 + 柔和多层投影 = 高级层次；入场只淡入 */
+  .card{border:1px solid var(--line);
+    background:linear-gradient(180deg,#181826,#14141f);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.5), 0 10px 30px -22px rgba(0,0,0,.85);
+    padding:18px;margin-bottom:16px;
+    animation:reveal .26s var(--ease) both;animation-delay:calc(var(--i,0)*30ms)}
+  .card h2{font-weight:650;letter-spacing:.1px;font-size:15px}
+  .card h2 .tag{background:var(--primary-soft);color:var(--primary);border-radius:7px;padding:2px 9px;font-weight:600;font-size:11.5px}
+
+  /* 今天要处理：暖琥珀语义提醒，平面协调 */
+  .today{background:var(--surface-2);border:1px solid var(--line-soft);border-left:3px solid var(--warn)}
+  .today h2{color:var(--warn)}
+  .todo{border-bottom:1px solid var(--line-soft);padding:11px 0}
+  .todo:last-child{border-bottom:none}
+  .todo .txt{font-size:14px}
+  .todo .txt b{color:var(--ink);font-size:13px;font-weight:600;margin-bottom:1px;display:inline}
+  .todo .act .btn{box-shadow:none}
+
+  /* 横幅 / 说明：中性冷面，紫色文字 */
+  .banner{background:var(--surface-2);border:1px solid var(--line-soft);color:var(--primary);border-radius:12px}
+  .banner .btn.ghost{color:var(--primary);border-color:var(--line)}
+  .note{background:var(--surface-2);border:1px solid var(--line-soft);color:var(--sub);border-radius:10px;margin-top:10px}
+
+  /* 数据管理：底部低频操作，低调处理 */
+  .datamgr{margin-top:30px;padding-top:18px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;gap:14px}
+  .datamgr-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .datamgr-title{font-size:13px;font-weight:650;color:var(--sub);letter-spacing:.2px}
+  .datamgr-sub{font-size:12px;color:var(--sub);opacity:.62}
+  .datamgr-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .datamgr .btn{min-height:40px;padding:9px 14px;font-size:13.5px}
+
+  /* 表单：冷字段面 + 聚焦紫发丝环 */
+  input,select,textarea{border:1px solid var(--line);border-radius:10px;background:#13131f;color:var(--ink);
+    transition:border-color .18s var(--ease),box-shadow .18s var(--ease),background .18s}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-soft);background:#16162a}
+  .field label{font-weight:600;letter-spacing:.1px;font-size:12px;color:var(--sub)}
+  .seg{border:1px solid var(--line);border-radius:10px;background:#13131f}
+  .seg button{background:transparent;color:var(--sub);border-radius:8px;transition:background .2s,color .2s}
+  .seg button.on{background:linear-gradient(180deg,#b794f6,#7c3aed);color:#0c0c1a;font-weight:650}
+
+  /* 表格 */
+  th{border-bottom:1.5px solid var(--line);font-weight:650;color:var(--sub);letter-spacing:.2px;font-size:12px}
+  tbody tr{border-bottom:1px solid var(--line-soft);transition:background .15s}
+  tbody tr:hover{background:var(--surface-2)}
+  .out{color:var(--red);font-weight:600}
+  .in{color:var(--green);font-weight:600}
+
+  /* 统计卡：发丝高光 + 柔投影 + 轻微悬浮 */
+  .stat{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:12px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 1px 2px rgba(0,0,0,.4);
+    padding:14px;transition:transform .18s var(--ease),border-color .18s,box-shadow .18s}
+  .stat:hover{transform:translateY(-2px);border-color:var(--line);box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 10px 26px -16px rgba(124,131,245,.4)}
+  .stat .k{letter-spacing:.2px;font-size:12px;color:var(--sub)}
+  .stat .v{font-variant-numeric:tabular-nums;letter-spacing:-.01em;font-size:21px}
+
+  /* 顶部导航：分段控件，激活紫渐变药丸 + 发丝高光 */
+  nav.top{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:5px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 8px 24px -18px rgba(0,0,0,.85)}
+  nav.top button{border-radius:9px;transition:background .18s,color .18s;color:var(--sub);background:transparent}
+  nav.top button:hover{color:var(--ink)}
+  nav.top button.on{background:linear-gradient(180deg,#b794f6,#7c3aed);color:#0c0c1a;font-weight:650;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 6px 16px -8px rgba(139,92,246,.5)}
+
+  /* 底部导航：实心冷暗条，发丝上边 */
+  .bottomnav{background:#101019;border-top:1px solid var(--line);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+  .bottomnav button{position:relative;color:var(--sub);transition:color .2s;background:transparent}
+  .bottomnav button.on{color:var(--primary)}
+  .bottomnav button.on::before{content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);width:18px;height:3px;border-radius:2px;background:var(--primary)}
+  .bottomnav button svg{transition:transform .2s var(--ease)}
+  .bottomnav button.on svg{transform:translateY(-1px)}
+
+  #toast{background:#ecebf5;color:#15151f;box-shadow:0 10px 30px -12px rgba(0,0,0,.7);font-weight:500;border-radius:10px}
+
+  .view.active{animation:viewIn .26s var(--ease) both}
+  @keyframes reveal{from{opacity:0}to{opacity:1}}
+  @keyframes viewIn{from{opacity:0}to{opacity:1}}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001ms!important;animation-delay:0!important;transition-duration:.001ms!important}
+    .card{opacity:1!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg>
+      </div>
+      <div>
+        <h1>记账工作台</h1>
+        <p>收支 · 资产收益 · 预算 · 智能录入</p>
+      </div>
+    </div>
+  </header>
+
+  <div id="dataBanner" class="banner" style="display:none">
+    <span id="dataBannerTxt"></span>
+    <button class="btn ghost" id="btnBackup" style="min-height:34px;padding:6px 10px">去备份</button>
+  </div>
+
+  <!-- 今天要处理 -->
+  <section class="card today">
+    <h2><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>今天要处理</h2>
+    <div id="todayList"></div>
+  </section>
+
+  <!-- 导航 -->
+  <nav class="top" id="topNav">
+    <button data-view="txn" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>收支记账</button>
+    <button data-view="asset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg>资产收益</button>
+    <button data-view="budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>月度预算</button>
+    <button data-view="smart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="M12 8a4 4 0 0 0 4 4 4 4 0 0 0-4 4 4 4 0 0 0-4-4 4 4 0 0 0 4-4z"/></svg>智能录入</button>
+  </nav>
+
+  <!-- 视图：收支记账 -->
+  <section class="view active" id="view-txn">
+    <div class="card">
+      <h2>记一笔</h2>
+      <div class="form-row">
+        <div class="seg" id="txnType">
+          <button type="button" data-t="out" class="on">支出</button>
+          <button type="button" data-t="in">收入</button>
+        </div>
+        <div class="field"><label>日期</label><input type="date" id="txnDate"></div>
+        <div class="field"><label>分类</label>
+          <select id="txnCat">
+            <option>餐饮</option><option>交通</option><option>购物</option><option>居住</option>
+            <option>娱乐</option><option>医疗</option><option>工资</option><option>投资收益</option><option>其他</option>
+          </select>
+        </div>
+        <div class="field"><label>金额 (¥)</label><input type="number" id="txnAmount" inputmode="decimal" placeholder="0.00" step="0.01"></div>
+        <div class="field" style="flex:2;min-width:200px"><label>备注</label><input type="text" id="txnNote" placeholder="选填"></div>
+        <div class="field" style="flex:none"><button class="btn primary" id="btnAddTxn" style="width:100%">添加</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>收支明细 <span class="tag" id="txnCount">0 笔</span></h2>
+      <div class="scroll">
+        <table id="txnTable">
+          <thead><tr><th>日期</th><th>类型</th><th>分类</th><th class="num">金额</th><th>备注</th><th></th></tr></thead>
+          <tbody id="txnBody"></tbody>
+        </table>
+      </div>
+      <div class="row-between" style="margin-top:12px">
+        <span class="mini" id="txnSummary"></span>
+        <button class="btn ghost" id="btnCsv">导出CSV</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 视图：资产收益 -->
+  <section class="view" id="view-asset">
+    <div class="card">
+      <h2>资产总览</h2>
+      <div class="grid2" id="assetStats"></div>
+      <div class="chartbox" style="margin-top:14px">
+        <div id="pieAsset"></div>
+        <div class="legend" id="pieLegend"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>基金持仓 <span class="tag">自动同步</span></h2>
+      <div class="syncbar">
+        <button class="btn primary" id="btnSync"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>同步实时净值</button>
+        <span class="mini" id="syncInfo">从未同步</span>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>代码</th><th>名称</th><th class="num">份额</th><th class="num">成本净值</th><th class="num">当前净值</th><th class="num">市值</th><th class="num">收益</th><th>更新</th><th></th></tr></thead>
+          <tbody id="fundBody"></tbody>
+        </table>
+      </div>
+      <div class="form-row" style="margin-top:12px">
+        <div class="field"><label>基金代码</label><input type="text" id="fundCode" placeholder="如 000051"></div>
+        <div class="field"><label>名称(可选)</label><input type="text" id="fundName" placeholder="留空自动获取"></div>
+        <div class="field"><label>持有份额</label><input type="number" id="fundShares" inputmode="decimal" placeholder="0" step="0.01"></div>
+        <div class="field"><label>成本净值</label><input type="number" id="fundCost" inputmode="decimal" placeholder="买入均价" step="0.0001"></div>
+        <div class="field" style="flex:none"><button class="btn primary" id="btnAddFund" style="width:100%">添加</button></div>
+      </div>
+      <div class="note">实时净值来自天天基金公开接口（场外开放式公募基金），需联网；交易时段显示估算净值，非交易时段显示最新单位净值。货币基金无估算值。</div>
+    </div>
+
+    <div class="card">
+      <h2>理财持仓 <span class="tag">手工记录</span></h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>产品</th><th>类型</th><th class="num">本金</th><th class="num">累计收益</th><th class="num">收益率</th><th>到期日</th><th></th></tr></thead>
+          <tbody id="wealthBody"></tbody>
+        </table>
+      </div>
+      <div class="form-row" style="margin-top:12px">
+        <div class="field"><label>产品名称</label><input type="text" id="wName" placeholder="如 招行R2稳健"></div>
+        <div class="field"><label>类型</label><input type="text" id="wType" placeholder="如 R2理财"></div>
+        <div class="field"><label>本金</label><input type="number" id="wPrincipal" inputmode="decimal" placeholder="0" step="0.01"></div>
+        <div class="field"><label>累计收益</label><input type="number" id="wProfit" inputmode="decimal" placeholder="0" step="0.01"></div>
+        <div class="field"><label>到期日(可选)</label><input type="date" id="wEnd"></div>
+        <div class="field" style="flex:none"><button class="btn primary" id="btnAddWealth" style="width:100%">添加</button></div>
+      </div>
+      <div class="note">银行理财无公开实时接口，收益请按实际到账/估值手工更新；设置到期日后会在「今天要处理」提前提醒。</div>
+    </div>
+  </section>
+
+  <!-- 视图：月度预算 -->
+  <section class="view" id="view-budget">
+    <div class="card">
+      <h2>本月预算</h2>
+      <div class="row-between">
+        <div class="field" style="min-width:200px"><label>预算月份</label><input type="month" id="budgetMonth"></div>
+        <div class="field" style="min-width:200px"><label>月支出预算 (¥)</label><input type="number" id="budgetAmount" inputmode="decimal" placeholder="如 8000" step="0.01"></div>
+        <div class="field" style="flex:none"><button class="btn primary" id="btnSetBudget" style="width:100%">保存预算</button></div>
+      </div>
+      <div class="chartbox" style="margin-top:16px;justify-content:center">
+        <div id="ringBudget"></div>
+        <div id="budgetText" style="font-size:14px"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>本月分类支出</h2>
+      <div id="catBars"></div>
+    </div>
+    <div class="card">
+      <h2>近 6 月收支趋势</h2>
+      <div id="trendBars"></div>
+    </div>
+  </section>
+
+  <!-- 视图：智能录入 -->
+  <section class="view" id="view-smart">
+    <div class="card">
+      <h2>智能录入 <span class="tag">截图 + 短信</span></h2>
+      <p class="note">一个入口搞定：粘贴银行 / 支付宝 / 微信短信，或上传基金 / 理财 / 账单截图。系统自动识别金额、日期、收支类型或基金代码，先预览再入账。纯本地正则解析，文本不上传服务器。</p>
+      <div class="field" style="margin-top:8px"><label>① 粘贴短信 / 账单文本</label>
+        <textarea id="smartText" rows="3" placeholder="例如：您尾号9278的储蓄卡8月10日14:30消费RMB86.00，余额…" style="width:100%;font-size:16px;padding:10px 12px;resize:vertical;font-family:inherit"></textarea>
+      </div>
+      <div class="form-row" style="margin-top:6px">
+        <div class="field" style="flex:2;min-width:200px"><label>② 或上传截图（OCR）</label><input type="file" id="ocrFile" accept="image/*"></div>
+        <div class="field" style="flex:none"><button class="btn primary" id="btnSmart" style="width:100%">智能识别</button></div>
+      </div>
+      <div id="ocrRaw" style="margin-top:8px"></div>
+      <div class="note">⚠️ 截图识别依赖 Tesseract.js（云端引擎，首次需联网下载），中文识别准确率有限，结果务必人工核对。</div>
+      <div id="smartPreview" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <!-- 数据管理：非常用操作，置于页面底部 -->
+  <section class="datamgr">
+    <div class="datamgr-head">
+      <span class="datamgr-title">数据管理</span>
+      <span class="datamgr-sub">数据存于本机浏览器，建议定期导出备份</span>
+    </div>
+    <div class="datamgr-actions">
+      <button class="btn ghost" id="btnExport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>导出 JSON</button>
+      <button class="btn ghost" id="btnImport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>导入恢复</button>
+      <button class="btn ghost danger" id="btnClear">清空数据</button>
+      <input type="file" id="fileInput" accept="application/json" style="display:none">
+    </div>
+  </section>
+</div>
+
+<!-- 移动端底部导航 -->
+<nav class="bottomnav" id="bottomNav">
+  <button data-view="txn" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>记账</button>
+  <button data-view="asset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg>资产</button>
+    <button data-view="budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>预算</button>
+    <button data-view="smart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="M12 8a4 4 0 0 0 4 4 4 4 0 0 0-4 4 4 4 0 0 0-4-4 4 4 0 0 0 4-4z"/></svg>智能</button>
+</nav>
+
+<div id="toast"></div>
+
+<script>
+/* ============ 数据层 ============ */
+const KEY='wb_jizhang_v1';
+const CATEGORIES=['餐饮','交通','购物','居住','娱乐','医疗','工资','投资收益','其他'];
+let state=load();
+let txnType='out';
+let firstAssetRender=true;
+
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function monthStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function fmt(n){n=Number(n)||0;return '¥'+n.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function num(n){n=Number(n)||0;return n.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function pct(n){return (Number(n)||0).toFixed(2)+'%';}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function defaultState(){
+  return {
+    txns:[
+      {id:uid(),date:'2026-08-01',type:'in',cat:'工资',amount:15000,note:'8月薪资'},
+      {id:uid(),date:'2026-08-08',type:'out',cat:'餐饮',amount:86,note:'工作日午餐'},
+      {id:uid(),date:'2026-08-09',type:'out',cat:'购物',amount:232,note:'超市采购'}
+    ],
+    funds:[
+      {id:uid(),code:'000051',name:'华夏沪深300ETF联接A',shares:5000,costNav:1.602,lastNav:null,lastNavDate:null,lastSync:0},
+      {id:uid(),code:'004432',name:'南方有色金属ETF联接E',shares:10000,costNav:1.052,lastNav:null,lastNavDate:null,lastSync:0}
+    ],
+    wealth:[
+      {id:uid(),name:'招行R2稳健理财',type:'R2理财',principal:300000,profit:1820,end:'2026-08-05'}
+    ],
+    budget:{month:monthStr(),amount:8000},
+    handled:{}, // 已处理的到期提醒 id
+    version:1
+  };
+}
+function load(){
+  try{const raw=localStorage.getItem(KEY);if(!raw)return defaultState();const d=JSON.parse(raw);return normalize(d);}
+  catch(e){return defaultState();}
+}
+function normalize(d){
+  d=d||{};
+  d.txns=d.txns||[];d.funds=d.funds||[];d.wealth=d.wealth||[];
+  d.budget=d.budget||{month:monthStr(),amount:0};d.handled=d.handled||{};
+  d.txns.forEach(t=>{t.id=t.id||uid();t.type=t.type||'out';t.amount=Number(t.amount)||0;});
+  d.funds.forEach(f=>{f.id=f.id||uid();f.shares=Number(f.shares)||0;f.costNav=Number(f.costNav)||0;f.lastNav=f.lastNav?Number(f.lastNav):null;f.lastSync=f.lastSync||0;});
+  d.wealth.forEach(w=>{w.id=w.id||uid();w.principal=Number(w.principal)||0;w.profit=Number(w.profit)||0;});
+  return d;
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));}
+
+/* ============ 实时净值同步（天天基金公开接口 / JSONP） ============ */
+const _fp={};
+window.jsonpgz=function(d){
+  if(!d||!d.fundcode)return;
+  const p=_fp[d.fundcode];
+  if(p){clearTimeout(p.timer);p.resolve(d);delete _fp[d.fundcode];}
+};
+function fetchFundGs(code){
+  return new Promise((resolve,reject)=>{
+    const p={resolve,reject};
+    _fp[code]=p;
+    p.timer=setTimeout(()=>{if(_fp[code]){delete _fp[code];reject(new Error('请求超时'));}},9000);
+    const s=document.createElement('script');
+    s.src='https://fundgz.1234567.com.cn/js/'+encodeURIComponent(code)+'.js?t='+Date.now();
+    s.onerror=function(){if(_fp[code]){clearTimeout(p.timer);delete _fp[code];reject(new Error('网络错误'));}s.remove();};
+    document.head.appendChild(s);
+  });
+}
+async function syncAllFunds(){
+  if(!state.funds.length){toast('暂无基金持仓');return;}
+  const btn=document.getElementById('btnSync');btn.disabled=true;btn.textContent='同步中…';
+  let ok=0,fail=0;
+  for(const f of state.funds){
+    try{
+      const d=await fetchFundGs(f.code);
+      if(d.name)f.name=d.name;
+      f.lastNav=(d.gsz!=null&&d.gsz!=='')?Number(d.gsz):(d.dwjz?Number(d.dwjz):f.lastNav);
+      f.lastNavDate=d.gztime||d.jzrq||null;
+      f.lastSync=Date.now();ok++;
+    }catch(e){fail++;}
+  }
+  save();renderAsset();renderToday();
+  btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>同步实时净值';
+  toast(fail?('同步完成：'+ok+' 成功，'+fail+' 失败（检查代码或网络）'):('已同步 '+ok+' 只基金最新净值'));
+}
+
+/* ============ 计算 ============ */
+function fundValue(f){return f.lastNav!=null?f.shares*f.lastNav:0;}
+function fundProfit(f){return f.lastNav!=null?f.shares*(f.lastNav-f.costNav):0;}
+function fundProfitRate(f){return f.costNav>0&&f.lastNav!=null?((f.lastNav-f.costNav)/f.costNav*100):0;}
+function totalFundValue(){return state.funds.reduce((a,f)=>a+fundValue(f),0);}
+function totalFundProfit(){return state.funds.reduce((a,f)=>a+fundProfit(f),0);}
+function totalWealthPrincipal(){return state.wealth.reduce((a,w)=>a+w.principal,0);}
+function totalWealthProfit(){return state.wealth.reduce((a,w)=>a+w.profit,0);}
+function monthTxns(m){return state.txns.filter(t=>t.date&&t.date.slice(0,7)===m);}
+function monthExpense(m){return monthTxns(m).filter(t=>t.type==='out').reduce((a,t)=>a+t.amount,0);}
+function monthIncome(m){return monthTxns(m).filter(t=>t.type==='in').reduce((a,t)=>a+t.amount,0);}
+
+/* ============ 渲染 ============ */
+function renderAll(){renderToday();renderTxn();renderAsset();renderBudget();renderDataBanner();}
+
+function renderToday(){
+  const el=document.getElementById('todayList');const t=todayStr();let html='';
+  // 理财到期提醒（逾期/临近）
+  state.wealth.forEach(w=>{
+    if(w.end&&!state.handled[w.id]){
+      const due=new Date(w.end);const today=new Date(t);
+      const days=Math.round((today-due)/86400000);
+      if(days>=0){
+        const label=days===0?'今天到期':'已逾期 '+days+' 天';
+        html+=`<div class="todo"><span class="dot" style="background:var(--red)"></span>
+          <div class="txt"><b>${esc(w.name)} · ${label}</b>本金 ${fmt(w.principal)}，累计收益 ${fmt(w.profit)}，到期日 ${esc(w.end)}</div>
+          <div class="act"><button class="btn" data-handle="${w.id}">确认已处理</button></div></div>`;
+      }else if(days>=-3){
+        html+=`<div class="todo"><span class="dot" style="background:#c2780a"></span>
+          <div class="txt"><b>${esc(w.name)} · ${(-days)} 天后到期</b>到期日 ${esc(w.end)}，请关注赎回/续投</div>
+          <div class="act"><button class="btn" data-handle="${w.id}">知道了</button></div></div>`;
+      }
+    }
+  });
+  // 基金未同步
+  const stale=state.funds.some(f=>!f.lastSync||(Date.now()-f.lastSync)>86400000);
+  if(stale){
+    html+=`<div class="todo"><span class="dot" style="background:#c2780a"></span>
+      <div class="txt"><b>基金净值待同步</b>部分基金超过 1 天未更新，实时收益可能不准</div>
+      <div class="act"><button class="btn primary" id="todoSync">立即同步</button></div></div>`;
+  }
+  // 预算预警
+  const m=state.budget.month;const exp=monthExpense(m);const bg=Number(state.budget.amount)||0;
+  if(bg>0){
+    const r=exp/bg;
+    if(r>=1){
+      html+=`<div class="todo"><span class="dot" style="background:var(--red)"></span>
+        <div class="txt"><b>本月预算已超支</b>${m} 已支出 ${fmt(exp)} / 预算 ${fmt(bg)}</div>
+        <div class="act"><button class="btn" data-goto="budget">查看预算</button></div></div>`;
+    }else if(r>=0.8){
+      html+=`<div class="todo"><span class="dot" style="background:#c2780a"></span>
+        <div class="txt"><b>预算接近上限</b>${m} 已用 ${Math.round(r*100)}%（${fmt(exp)} / ${fmt(bg)}）</div>
+        <div class="act"><button class="btn" data-goto="budget">查看预算</button></div></div>`;
+    }
+  }
+  el.innerHTML=html||'<div class="empty">今天没有待处理事项，状态良好 ✦</div>';
+  el.querySelectorAll('[data-handle]').forEach(b=>b.onclick=()=>{state.handled[b.dataset.handle]=1;save();renderToday();toast('已标记处理');});
+  el.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>switchView(b.dataset.goto));
+  const ts=document.getElementById('todoSync');if(ts)ts.onclick=syncAllFunds;
+}
+
+function renderTxn(){
+  const body=document.getElementById('txnBody');
+  const list=[...state.txns].sort((a,b)=>a.date<b.date?1:-1);
+  document.getElementById('txnCount').textContent=list.length+' 笔';
+  if(!list.length){body.innerHTML='<tr><td colspan="6" class="empty">暂无记录，记一笔吧</td></tr>';}
+  else{
+    body.innerHTML=list.map(t=>`<tr>
+      <td>${esc(t.date)}</td>
+      <td>${t.type==='in'?'<span class="in">收入</span>':'<span class="out">支出</span>'}</td>
+      <td>${esc(t.cat)}</td>
+      <td class="num ${t.type==='in'?'in':'out'}">${t.type==='in'?'+':'-'}${num(t.amount)}</td>
+      <td>${esc(t.note)||'-'}</td>
+      <td><button class="del" data-del="${t.id}">删除</button></td></tr>`).join('');
+    body.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{state.txns=state.txns.filter(x=>x.id!==b.dataset.del);save();renderTxn();renderToday();renderBudget();renderDataBanner();toast('已删除');});
+  }
+  const inc=state.txns.filter(t=>t.type==='in').reduce((a,t)=>a+t.amount,0);
+  const out=state.txns.filter(t=>t.type==='out').reduce((a,t)=>a+t.amount,0);
+  document.getElementById('txnSummary').textContent='累计收入 '+fmt(inc)+' ｜ 累计支出 '+fmt(out)+' ｜ 结余 '+fmt(inc-out);
+}
+
+function renderAsset(){
+  const fv=totalFundValue(),fp=totalFundProfit(),wp=totalWealthPrincipal(),wpr=totalWealthProfit();
+  const totalAssets=fv+wp;
+  document.getElementById('assetStats').innerHTML=`
+    <div class="stat"><span class="k">基金市值</span><span class="v">${fmt(fv)}</span></div>
+    <div class="stat"><span class="k">基金收益</span><span class="v" style="color:${fp>=0?'var(--green)':'var(--red)'}">${fp>=0?'+':''}${fmt(fp)}</span></div>
+    <div class="stat"><span class="k">理财本金</span><span class="v">${fmt(wp)}</span></div>
+    <div class="stat"><span class="k">理财收益</span><span class="v" style="color:${wpr>=0?'var(--green)':'var(--red)'}">${wpr>=0?'+':''}${fmt(wpr)}</span></div>
+    <div class="stat"><span class="k">总资产</span><span class="v" id="statTotalAssets">${fmt(totalAssets)}</span></div>
+    <div class="stat"><span class="k">总收益</span><span class="v" id="statTotalProfit" style="color:${(fp+wpr)>=0?'var(--green)':'var(--red)'}">${(fp+wpr)>=0?'+':''}${fmt(fp+wpr)}</span></div>`;
+  // 饼图
+  const segs=[{label:'基金市值',value:fv,color:'#b794f6'},{label:'理财本金',value:wp,color:'#7c3aed'}].filter(s=>s.value>0);
+  document.getElementById('pieAsset').innerHTML=segs.length?pieChart(segs,150):'<div class="empty">暂无可统计资产</div>';
+  document.getElementById('pieLegend').innerHTML=segs.map(s=>`<span><i style="background:${s.color}"></i>${s.label} ${fmt(s.value)}（${totalAssets?Math.round(s.value/totalAssets*100):0}%）</span>`).join('');
+  // 基金表
+  const fb=document.getElementById('fundBody');
+  if(!state.funds.length)fb.innerHTML='<tr><td colspan="9" class="empty">暂无基金，添加后点同步</td></tr>';
+  else fb.innerHTML=state.funds.map(f=>{const v=fundValue(f),p=fundProfit(f),r=fundProfitRate(f);const synced=f.lastNav!=null;
+    return `<tr>
+      <td>${esc(f.code)}</td><td>${esc(f.name)}</td>
+      <td class="num">${num(f.shares)}</td><td class="num">${num(f.costNav)}</td>
+      <td class="num">${synced?num(f.lastNav):'<span class="mini">未同步</span>'}</td>
+      <td class="num">${synced?fmt(v):'-'}</td>
+      <td class="num ${p>=0?'in':'out'}">${synced?(p>=0?'+':'')+fmt(p):'-'}</td>
+      <td class="mini">${synced?esc(f.lastNavDate||''):'-'}</td>
+      <td><button class="del" data-fdel="${f.id}">删除</button></td></tr>`;}).join('');
+  fb.querySelectorAll('[data-fdel]').forEach(b=>b.onclick=()=>{state.funds=state.funds.filter(x=>x.id!==b.dataset.fdel);save();renderAsset();renderToday();toast('已删除');});
+  // 理财表
+  const wb=document.getElementById('wealthBody');
+  if(!state.wealth.length)wb.innerHTML='<tr><td colspan="7" class="empty">暂无理财记录</td></tr>';
+  else wb.innerHTML=state.wealth.map(w=>{const r=w.principal>0?w.profit/w.principal*100:0;
+    return `<tr>
+      <td>${esc(w.name)}</td><td>${esc(w.type)}</td>
+      <td class="num">${fmt(w.principal)}</td><td class="num in">+${fmt(w.profit)}</td>
+      <td class="num in">+${pct(r)}</td><td class="mini">${esc(w.end)||'-'}</td>
+      <td><button class="del" data-wdel="${w.id}">删除</button></td></tr>`;}).join('');
+  wb.querySelectorAll('[data-wdel]').forEach(b=>b.onclick=()=>{state.wealth=state.wealth.filter(x=>x.id!==b.dataset.wdel);save();renderAsset();renderToday();toast('已删除');});
+  // 同步信息
+  const synced=state.funds.filter(f=>f.lastSync);
+  document.getElementById('syncInfo').textContent=synced.length?('最近同步：'+new Date(Math.max(...synced.map(f=>f.lastSync))).toLocaleString('zh-CN')):'从未同步';
+}
+
+function renderBudget(){
+  document.getElementById('budgetMonth').value=state.budget.month;
+  document.getElementById('budgetAmount').value=state.budget.amount||'';
+  const m=state.budget.month;const exp=monthExpense(m);const inc=monthIncome(m);const bg=Number(state.budget.amount)||0;
+  const r=bg>0?exp/bg:0;
+  document.getElementById('ringBudget').innerHTML=ringChart(bg>0?r:0,140,bg>0&&r>=1?'var(--red)':(bg>0&&r>=0.8?'#c2780a':'var(--primary)'));
+  document.getElementById('budgetText').innerHTML=
+    `<div><b>${m}</b></div>
+     <div class="mini">预算 ${bg?fmt(bg):'未设置'}</div>
+     <div class="mini">已支出 <span style="color:var(--red)">${fmt(exp)}</span></div>
+     <div class="mini">已收入 <span style="color:var(--green)">${fmt(inc)}</span></div>
+     <div class="mini">${bg?(exp>bg?'已超支 '+fmt(exp-bg):'剩余 '+fmt(bg-exp)):'设置预算后可看进度'}</div>`;
+  // 分类支出
+  const cats={};monthTxns(m).filter(t=>t.type==='out').forEach(t=>cats[t.cat]=(cats[t.cat]||0)+t.amount);
+  const items=Object.keys(cats).map(k=>({label:k,value:cats[k]})).sort((a,b)=>b.value-a.value);
+  document.getElementById('catBars').innerHTML=items.length?barChart(items):'<div class="empty">本月暂无支出</div>';
+  // 近6月趋势
+  const months=[];const now=new Date();
+  for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));}
+  const trend=months.map(mo=>({label:mo.slice(5)+'月',value:monthIncome(mo)-monthExpense(mo)}));
+  document.getElementById('trendBars').innerHTML=barChart(trend,true);
+}
+
+function renderDataBanner(){
+  const total=state.txns.length+state.funds.length+state.wealth.length;
+  const b=document.getElementById('dataBanner');
+  if(total>=30){b.style.display='flex';document.getElementById('dataBannerTxt').textContent='数据已积累 '+total+' 条，建议导出 JSON 备份，避免意外丢失。';}
+  else b.style.display='none';
+}
+
+/* ============ SVG 图表 ============ */
+function pieChart(segs,size){
+  const total=segs.reduce((a,s)=>a+s.value,0)||1;let ang=-Math.PI/2;const cx=size/2,cy=size/2,r=size/2-6;let p='';
+  segs.forEach(s=>{if(s.value<=0)return;const sl=s.value/total*Math.PI*2;const a2=ang+sl;
+    const x1=cx+r*Math.cos(ang),y1=cy+r*Math.sin(ang),x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2);
+    const large=sl>Math.PI?1:0;p+=`<path d="M${cx} ${cy} L${x1.toFixed(2)} ${y1.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z" fill="${s.color}"/>`;ang=a2;});
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">${p}<circle cx="${cx}" cy="${cy}" r="${r*0.45}" fill="#15151f"/></svg>`;
+}
+function ringChart(p,size,color){
+  const r=(size/2)-12,c=2*Math.PI*r,off=c*(1-Math.min(p,1));
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#cdbfa6" stroke-width="14"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 ${size/2} ${size/2})"/>
+    <text x="${size/2}" y="${size/2+6}" text-anchor="middle" font-size="24" font-weight="700" fill="#ecebf5">${Math.round(p*100)}%</text></svg>`;
+}
+function barChart(items,signed){
+  const max=Math.max(...items.map(i=>Math.abs(i.value)),1);const labelW=46,barX=labelW+6,maxBar=240,h=20,gap=10;let y=0,rows='';
+  items.forEach(it=>{const w=Math.abs(it.value)/max*maxBar;const v=it.value;
+    rows+=`<text x="0" y="${y+h-5}" font-size="12" fill="#9b9bb6">${esc(it.label)}</text>`;
+    const col=v>=0?'#a78bfa':'#f0818f';
+    if(signed){
+      const zeroX=barX+maxBar/2;
+      if(v>=0){rows+=`<rect x="${zeroX}" y="${y}" width="${w/2}" height="${h}" rx="4" fill="${col}"/>`;rows+=`<text x="${zeroX+w/2+6}" y="${y+h-5}" font-size="12" fill="#ecebf5">${num(v)}</text>`;}
+      else{rows+=`<rect x="${zeroX-w/2}" y="${y}" width="${w/2}" height="${h}" rx="4" fill="${col}"/>`;rows+=`<text x="${zeroX-w/2-6}" y="${y+h-5}" font-size="12" fill="#ecebf5" text-anchor="end">${num(v)}</text>`;}
+    }else{
+      rows+=`<rect x="${barX}" y="${y}" width="${w}" height="${h}" rx="4" fill="${col}"/>`;
+      rows+=`<text x="${barX+w+6}" y="${y+h-5}" font-size="12" fill="#ecebf5">${num(v)}</text>`;
+    }
+    y+=h+gap;
+  });
+  const W=signed?barX+maxBar+80:barX+maxBar+80;
+  return `<svg viewBox="0 0 ${W} ${y}" width="100%" style="max-width:${W}px">${rows}</svg>`;
+}
+
+/* ============ 交互 ============ */
+function switchView(v){
+  document.querySelectorAll('.view').forEach(s=>s.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelectorAll('#topNav button,#bottomNav button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(v==='asset'&&firstAssetRender){
+    firstAssetRender=false;
+    setTimeout(()=>{
+      const ta=document.getElementById('statTotalAssets');if(ta)countUp(ta,totalFundValue()+totalWealthPrincipal(),650);
+      const tp=document.getElementById('statTotalProfit');if(tp)countUp(tp,totalFundProfit()+totalWealthProfit(),650,(x)=>(x>=0?'+':'')+fmt(x));
+    },90);
+  }
+}
+document.querySelectorAll('#topNav button,#bottomNav button').forEach(b=>b.onclick=()=>switchView(b.dataset.view));
+document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>switchView(b.dataset.goto));
+
+// 记账类型切换
+document.querySelectorAll('#txnType button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#txnType button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');txnType=b.dataset.t;
+});
+function addTxn(){
+  const date=document.getElementById('txnDate').value||todayStr();
+  const cat=document.getElementById('txnCat').value;
+  const amount=Number(document.getElementById('txnAmount').value);
+  const note=document.getElementById('txnNote').value.trim();
+  if(!amount||amount<=0){toast('请输入有效金额');return;}
+  state.txns.push({id:uid(),date,type:txnType,cat,amount,note});
+  save();renderTxn();renderToday();renderBudget();renderDataBanner();
+  document.getElementById('txnAmount').value='';document.getElementById('txnNote').value='';
+  toast('已记录');
+}
+document.getElementById('btnAddTxn').onclick=addTxn;
+
+function addFund(){
+  const code=document.getElementById('fundCode').value.trim();
+  const name=document.getElementById('fundName').value.trim();
+  const shares=Number(document.getElementById('fundShares').value);
+  const cost=Number(document.getElementById('fundCost').value);
+  if(!code){toast('请输入基金代码');return;}
+  if(!shares||shares<=0){toast('请输入持有份额');return;}
+  state.funds.push({id:uid(),code,name:name||code,shares,costNav:cost,lastNav:null,lastNavDate:null,lastSync:0});
+  save();renderAsset();renderToday();
+  ['fundCode','fundName','fundShares','fundCost'].forEach(id=>document.getElementById(id).value='');
+  toast('基金已添加，记得点同步');
+}
+document.getElementById('btnAddFund').onclick=addFund;
+document.getElementById('btnSync').onclick=syncAllFunds;
+
+function addWealth(){
+  const name=document.getElementById('wName').value.trim();
+  const type=document.getElementById('wType').value.trim();
+  const principal=Number(document.getElementById('wPrincipal').value);
+  const profit=Number(document.getElementById('wProfit').value);
+  const end=document.getElementById('wEnd').value;
+  if(!name){toast('请输入产品名称');return;}
+  if(!principal||principal<=0){toast('请输入本金');return;}
+  state.wealth.push({id:uid(),name,type:type||'理财',principal,profit:profit||0,end:end||''});
+  save();renderAsset();renderToday();
+  ['wName','wType','wPrincipal','wProfit','wEnd'].forEach(id=>document.getElementById(id).value='');
+  toast('理财已添加');
+}
+document.getElementById('btnAddWealth').onclick=addWealth;
+
+document.getElementById('btnSetBudget').onclick=()=>{
+  state.budget.month=document.getElementById('budgetMonth').value||monthStr();
+  state.budget.amount=Number(document.getElementById('budgetAmount').value)||0;
+  save();renderBudget();renderToday();toast('预算已保存');
+};
+
+// 导出 JSON
+document.getElementById('btnExport').onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='记账工作台备份_'+todayStr()+'.json';a.click();URL.revokeObjectURL(a.href);
+  toast('已导出 JSON 备份');
+};
+// 导入
+document.getElementById('btnImport').onclick=()=>document.getElementById('fileInput').click();
+document.getElementById('fileInput').onchange=e=>{
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{try{const data=JSON.parse(ev.target.result);
+    if(confirm('导入将覆盖当前全部数据，确定继续？')){state=normalize(data);save();renderAll();toast('导入成功，共 '+(state.txns.length+state.funds.length+state.wealth.length)+' 条');}
+  }catch(err){alert('文件格式错误，无法导入');}};
+  r.readAsText(file);e.target.value='';
+};
+// CSV
+document.getElementById('btnCsv').onclick=()=>{
+  if(!state.txns.length){toast('暂无数据');return;}
+  const head='日期,类型,分类,金额,备注\n';
+  const rows=state.txns.map(t=>`${t.date},${t.type==='in'?'收入':'支出'},${t.cat},${t.amount},"${(t.note||'').replace(/"/g,'""')}"`).join('\n');
+  const blob=new Blob(['﻿'+head+rows],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='收支明细_'+todayStr()+'.csv';a.click();URL.revokeObjectURL(a.href);
+  toast('已导出 CSV');
+};
+// 清空
+document.getElementById('btnClear').onclick=()=>{
+  if(!confirm('确定清空全部数据？此操作不可恢复。'))return;
+  if(!confirm('再次确认：将删除所有收支、基金、理财与预算数据。'))return;
+  state={txns:[],funds:[],wealth:[],budget:{month:monthStr(),amount:0},handled:{},version:1};
+  save();renderAll();toast('已清空全部数据');
+};
+document.getElementById('btnBackup').onclick=()=>document.getElementById('btnExport').click();
+
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._tm);t._tm=setTimeout(()=>t.classList.remove('show'),2200);
+}
+/* 数字滚动累加（克制微交互；尊重 reduced-motion） */
+function countUp(el,to,dur,fmtFn){
+  if(!el)return;
+  const f=fmtFn||fmt;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches||!isFinite(to)){el.textContent=f(to);return;}
+  const t0=performance.now();
+  (function step(now){
+    const p=Math.min(1,(now-t0)/dur);
+    const e=1-Math.pow(1-p,3);
+    el.textContent=f(to*e);
+    if(p<1)requestAnimationFrame(step);else el.textContent=f(to);
+  })(performance.now());
+}
+
+/* ============ 银行短信 / 账单 文本解析 ============ */
+function pad2(n){return String(n).padStart(2,'0');}
+function moneyAfter(t,kw){
+  const i=t.indexOf(kw);if(i<0)return null;
+  const m=t.slice(i).match(/([0-9][0-9,]*\.?\d*)/);
+  return m?m[1]:null;
+}
+function inferCat(t,type){
+  if(/餐饮|美食|饭店|外卖|餐厅/.test(t))return '餐饮';
+  if(/超市|购物|商城|京东|淘宝|天猫|拼多多|网购/.test(t))return '购物';
+  if(/滴滴|打车|地铁|公交|加油|停车|交通|高铁|火车|机票|铁路|滴滴出行/.test(t))return '交通';
+  if(/医院|药店|医疗|健康|诊所/.test(t))return '医疗';
+  if(/工资|薪资|薪酬|代发|入账/.test(t))return '工资';
+  if(/基金|理财|证券|股票|收益|赎回/.test(t))return '投资收益';
+  if(/电影|演出|游戏|娱乐/.test(t))return '娱乐';
+  if(/房租|物业|水电|燃气|居住/.test(t))return '居住';
+  return type==='in'?'工资':'其他';
+}
+function parseBankSms(text){
+  const t=text||'';
+  const res={date:todayStr(),type:'out',cat:'其他',amount:0,note:''};
+  const am=moneyAfter(t,'消费')||moneyAfter(t,'支出')||moneyAfter(t,'扣款')||moneyAfter(t,'代付')
+        ||moneyAfter(t,'入账')||moneyAfter(t,'收入')||moneyAfter(t,'工资')||moneyAfter(t,'退款')||moneyAfter(t,'收款');
+  if(!am){const mm=t.match(/([0-9][0-9,]*\.?\d*)/);if(mm)res.amount=Number(mm[1].replace(/,/g,''));}
+  else res.amount=Number(am.replace(/,/g,''));
+  if(/入账|收入|工资|退款|收款|到账|代发/.test(t))res.type='in';
+  else if(/消费|支出|扣款|代付/.test(t))res.type='out';
+  else res.type='out';
+  const dm=t.match(/(\d{4})[-/年.](\d{1,2})[-/月.](\d{1,2})/);
+  if(dm)res.date=dm[1]+'-'+pad2(dm[2])+'-'+pad2(dm[3]);
+  else{const mm=t.match(/(\d{1,2})月(\d{1,2})[日号]/);if(mm)res.date=new Date().getFullYear()+'-'+pad2(mm[1])+'-'+pad2(mm[2]);}
+  res.cat=inferCat(t,res.type);
+  res.note=t.replace(/\s+/g,' ').trim().slice(0,40);
+  return res;
+}
+/* ============ 智能录入（短信 + 截图 OCR 统一入口） ============ */
+async function smartRecognize(){
+  const file=document.getElementById('ocrFile').files[0];
+  const textEl=document.getElementById('smartText');
+  const rawBox=document.getElementById('ocrRaw');
+  const box=document.getElementById('smartPreview');
+  let text=textEl.value.trim();
+  if(file){
+    rawBox.innerHTML='<div class="mini">识别中…（首次需联网下载识别引擎，请稍候）</div>';
+    let T;
+    try{T=await loadTesseract();}catch(e){rawBox.innerHTML='<div class="note">'+esc(e.message)+'</div>';return;}
+    try{
+      const {data:{text:ot}}=await T.recognize(file,'chi_sim+eng',{logger:function(){}});
+      const raw=ot.replace(/\s+/g,' ').trim();
+      rawBox.innerHTML='<div class="note">识别文本：'+(raw?esc(raw):'(未识别到文字)')+'</div>';
+      if(!text)text=raw; else text=(text+' '+raw).trim();
+      textEl.value=text;
+    }catch(e){rawBox.innerHTML='<div class="note">识别失败：'+esc(e.message)+'</div>';return;}
+  }
+  if(!text){box.innerHTML='<div class="note">请先粘贴短信 / 账单文本，或上传截图。</div>';return;}
+  renderSmartPreview(text,box,textEl);
+}
+function renderSmartPreview(text,box,textEl){
+  const r=parseBankSms(text);
+  const codeM=text.match(/\b(\d{6})\b/);
+  let html='';
+  if(r.amount>0){
+    html+=`<div class="card" style="margin-top:12px;background:var(--soft)">
+      <div class="row-between"><b>账单解析预览</b><span class="mini">请核对后入账</span></div>
+      <div class="form-row" style="margin-top:8px">
+        <div class="field"><label>日期</label><input type="date" id="spDate" value="${r.date}"></div>
+        <div class="field"><label>类型</label><select id="spType"><option value="out"${r.type==='out'?' selected':''}>支出</option><option value="in"${r.type==='in'?' selected':''}>收入</option></select></div>
+        <div class="field"><label>分类</label><input type="text" id="spCat" value="${esc(r.cat)}"></div>
+        <div class="field"><label>金额</label><input type="number" id="spAmount" value="${r.amount}" step="0.01"></div>
+      </div>
+      <div style="margin-top:8px"><button class="btn primary" id="spAdd">确认入账</button></div>
+    </div>`;
+  }
+  if(codeM){
+    html+=`<div class="card" style="margin-top:10px;background:var(--soft)"><b>识别到基金代码 ${esc(codeM[1])}</b>
+      <div style="margin-top:8px"><button class="btn" id="ocFund">填入「添加基金」表单</button></div></div>`;
+  }
+  if(!r.amount&&!codeM)html+='<div class="note">未识别到明确金额或基金代码，请补充文本或手动录入。</div>';
+  box.innerHTML=html;
+  const sa=document.getElementById('spAdd');
+  if(sa)sa.onclick=()=>{const amt=Number(document.getElementById('spAmount').value)||0;if(!amt){toast('金额为空');return;}
+    state.txns.push({id:uid(),date:document.getElementById('spDate').value||todayStr(),type:document.getElementById('spType').value,cat:document.getElementById('spCat').value||'其他',amount:amt,note:r.note});
+    save();renderTxn();renderToday();renderBudget();renderDataBanner();
+    box.innerHTML='';if(textEl)textEl.value='';toast('已入账');};
+  const of=document.getElementById('ocFund');
+  if(of)of.onclick=()=>{document.getElementById('fundCode').value=codeM[1];switchView('asset');toast('已填入基金代码，请补全份额与成本净值');box.innerHTML='';};
+}
+document.getElementById('btnSmart').onclick=smartRecognize;
+
+/* ============ 截图 OCR（Tesseract.js，按需从 CDN 加载） ============ */
+function loadTesseract(){
+  return new Promise((resolve,reject)=>{
+    if(window.Tesseract)return resolve(window.Tesseract);
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload=()=>resolve(window.Tesseract);
+    s.onerror=()=>reject(new Error('OCR 引擎加载失败：需联网且 CDN 可达'));
+    document.head.appendChild(s);
+  });
+}
+/* 截图 OCR 已合并至「智能录入」smartRecognize()，无需独立识别函数 */
+
+/* ============ 初始化 ============ */
+document.querySelectorAll('.card').forEach((c,i)=>c.style.setProperty('--i',i%10));
+document.getElementById('txnDate').value=todayStr();
+document.getElementById('budgetMonth').value=monthStr();
+renderAll();
+</script>
+</body>
+</html>
