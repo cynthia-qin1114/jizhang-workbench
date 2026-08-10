@@ -385,6 +385,40 @@
       </div>
       <div class="note">银行理财无公开实时接口，收益请按实际到账/估值手工更新；设置到期日后会在「今天要处理」提前提醒。</div>
     </div>
+
+    <div class="card">
+      <h2>活期存款 <span class="tag">手工记录</span></h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>名称</th><th>银行</th><th class="num">余额</th><th></th></tr></thead>
+          <tbody id="depositBody"></tbody>
+        </table>
+      </div>
+      <div class="form-row" style="margin-top:12px">
+        <div class="field"><label>账户名称</label><input type="text" id="depName" placeholder="如 招行活期储蓄"></div>
+        <div class="field"><label>开户行</label><input type="text" id="depBank" placeholder="如 招商银行"></div>
+        <div class="field"><label>余额</label><input type="number" id="depBalance" inputmode="decimal" placeholder="0" step="0.01"></div>
+        <div class="field" style="flex:none"><button class="btn primary" id="btnAddDeposit" style="width:100%">添加</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>黄金投资 <span class="tag">手工记录</span></h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>名称</th><th class="num">克数</th><th class="num">成本金价</th><th class="num">当前金价</th><th class="num">市值</th><th class="num">收益</th><th></th></tr></thead>
+          <tbody id="goldBody"></tbody>
+        </table>
+      </div>
+      <div class="form-row" style="margin-top:12px">
+        <div class="field"><label>名称</label><input type="text" id="gName" placeholder="如 黄金ETF联接"></div>
+        <div class="field"><label>克数</label><input type="number" id="gGrams" inputmode="decimal" placeholder="0" step="0.01"></div>
+        <div class="field"><label>成本金价</label><input type="number" id="gCost" inputmode="decimal" placeholder="买入均价" step="0.01"></div>
+        <div class="field"><label>当前金价</label><input type="number" id="gPrice" inputmode="decimal" placeholder="实时/估值" step="0.01"></div>
+        <div class="field" style="flex:none"><button class="btn primary" id="btnAddGold" style="width:100%">添加</button></div>
+      </div>
+      <div class="note">金价可填黄金ETF净值或实物金价，收益 = 克数 ×（当前金价 − 成本金价）。</div>
+    </div>
   </section>
 
   <!-- 视图：月度预算 -->
@@ -484,6 +518,12 @@ function defaultState(){
     wealth:[
       {id:uid(),name:'招行R2稳健理财',type:'R2理财',principal:300000,profit:1820,end:'2026-08-05'}
     ],
+    deposit:[
+      {id:uid(),name:'招行活期储蓄',bank:'招商银行',balance:50000}
+    ],
+    gold:[
+      {id:uid(),name:'黄金ETF联接',grams:100,cost:380.5,price:455.2}
+    ],
     budget:{month:monthStr(),amount:8000},
     handled:{}, // 已处理的到期提醒 id
     version:1
@@ -495,11 +535,13 @@ function load(){
 }
 function normalize(d){
   d=d||{};
-  d.txns=d.txns||[];d.funds=d.funds||[];d.wealth=d.wealth||[];
+  d.txns=d.txns||[];d.funds=d.funds||[];d.wealth=d.wealth||[];d.deposit=d.deposit||[];d.gold=d.gold||[];
   d.budget=d.budget||{month:monthStr(),amount:0};d.handled=d.handled||{};
   d.txns.forEach(t=>{t.id=t.id||uid();t.type=t.type||'out';t.amount=Number(t.amount)||0;});
   d.funds.forEach(f=>{f.id=f.id||uid();f.shares=Number(f.shares)||0;f.costNav=Number(f.costNav)||0;f.lastNav=f.lastNav?Number(f.lastNav):null;f.lastSync=f.lastSync||0;});
   d.wealth.forEach(w=>{w.id=w.id||uid();w.principal=Number(w.principal)||0;w.profit=Number(w.profit)||0;});
+  d.deposit.forEach(x=>{x.id=x.id||uid();x.balance=Number(x.balance)||0;});
+  d.gold.forEach(x=>{x.id=x.id||uid();x.grams=Number(x.grams)||0;x.cost=Number(x.cost)||0;x.price=Number(x.price)||0;});
   return d;
 }
 function save(){localStorage.setItem(KEY,JSON.stringify(state));}
@@ -548,6 +590,9 @@ function totalFundValue(){return state.funds.reduce((a,f)=>a+fundValue(f),0);}
 function totalFundProfit(){return state.funds.reduce((a,f)=>a+fundProfit(f),0);}
 function totalWealthPrincipal(){return state.wealth.reduce((a,w)=>a+w.principal,0);}
 function totalWealthProfit(){return state.wealth.reduce((a,w)=>a+w.profit,0);}
+function totalDepositBalance(){return state.deposit.reduce((a,x)=>a+x.balance,0);}
+function totalGoldValue(){return state.gold.reduce((a,x)=>a+x.grams*x.price,0);}
+function totalGoldProfit(){return state.gold.reduce((a,x)=>a+x.grams*(x.price-x.cost),0);}
 function monthTxns(m){return state.txns.filter(t=>t.date&&t.date.slice(0,7)===m);}
 function monthExpense(m){return monthTxns(m).filter(t=>t.type==='out').reduce((a,t)=>a+t.amount,0);}
 function monthIncome(m){return monthTxns(m).filter(t=>t.type==='in').reduce((a,t)=>a+t.amount,0);}
@@ -623,16 +668,26 @@ function renderTxn(){
 
 function renderAsset(){
   const fv=totalFundValue(),fp=totalFundProfit(),wp=totalWealthPrincipal(),wpr=totalWealthProfit();
-  const totalAssets=fv+wp;
+  const dp=totalDepositBalance(),gv=totalGoldValue(),gpr=totalGoldProfit();
+  const totalAssets=fv+wp+dp+gv;
+  const totalProfit=fp+wpr+gpr;
   document.getElementById('assetStats').innerHTML=`
     <div class="stat"><span class="k">基金市值</span><span class="v">${fmt(fv)}</span></div>
     <div class="stat"><span class="k">基金收益</span><span class="v" style="color:${fp>=0?'var(--green)':'var(--red)'}">${fp>=0?'+':''}${fmt(fp)}</span></div>
     <div class="stat"><span class="k">理财本金</span><span class="v">${fmt(wp)}</span></div>
     <div class="stat"><span class="k">理财收益</span><span class="v" style="color:${wpr>=0?'var(--green)':'var(--red)'}">${wpr>=0?'+':''}${fmt(wpr)}</span></div>
+    <div class="stat"><span class="k">活期余额</span><span class="v">${fmt(dp)}</span></div>
+    <div class="stat"><span class="k">黄金市值</span><span class="v">${fmt(gv)}</span></div>
+    <div class="stat"><span class="k">黄金收益</span><span class="v" style="color:${gpr>=0?'var(--green)':'var(--red)'}">${gpr>=0?'+':''}${fmt(gpr)}</span></div>
     <div class="stat"><span class="k">总资产</span><span class="v" id="statTotalAssets">${fmt(totalAssets)}</span></div>
-    <div class="stat"><span class="k">总收益</span><span class="v" id="statTotalProfit" style="color:${(fp+wpr)>=0?'var(--green)':'var(--red)'}">${(fp+wpr)>=0?'+':''}${fmt(fp+wpr)}</span></div>`;
-  // 饼图
-  const segs=[{label:'基金市值',value:fv,color:'#b794f6'},{label:'理财本金',value:wp,color:'#7c3aed'}].filter(s=>s.value>0);
+    <div class="stat"><span class="k">总收益</span><span class="v" id="statTotalProfit" style="color:${totalProfit>=0?'var(--green)':'var(--red)'}">${totalProfit>=0?'+':''}${fmt(totalProfit)}</span></div>`;
+  // 饼图（四类别）
+  const segs=[
+    {label:'基金市值',value:fv,color:'#b794f6'},
+    {label:'理财本金',value:wp,color:'#7c3aed'},
+    {label:'活期余额',value:dp,color:'#8b95f5'},
+    {label:'黄金市值',value:gv,color:'#c4b5fd'}
+  ].filter(s=>s.value>0);
   document.getElementById('pieAsset').innerHTML=segs.length?pieChart(segs,150):'<div class="empty">暂无可统计资产</div>';
   document.getElementById('pieLegend').innerHTML=segs.map(s=>`<span><i style="background:${s.color}"></i>${s.label} ${fmt(s.value)}（${totalAssets?Math.round(s.value/totalAssets*100):0}%）</span>`).join('');
   // 基金表
@@ -646,8 +701,9 @@ function renderAsset(){
       <td class="num">${synced?fmt(v):'-'}</td>
       <td class="num ${p>=0?'in':'out'}">${synced?(p>=0?'+':'')+fmt(p):'-'}</td>
       <td class="mini">${synced?esc(f.lastNavDate||''):'-'}</td>
-      <td><button class="del" data-fdel="${f.id}">删除</button></td></tr>`;}).join('');
+      <td><button class="del" data-fedit="${f.id}">编辑</button> <button class="del" data-fdel="${f.id}">删除</button></td></tr>`;}).join('');
   fb.querySelectorAll('[data-fdel]').forEach(b=>b.onclick=()=>{state.funds=state.funds.filter(x=>x.id!==b.dataset.fdel);save();renderAsset();renderToday();toast('已删除');});
+  fb.querySelectorAll('[data-fedit]').forEach(b=>b.onclick=()=>editFund(b.dataset.fedit));
   // 理财表
   const wb=document.getElementById('wealthBody');
   if(!state.wealth.length)wb.innerHTML='<tr><td colspan="7" class="empty">暂无理财记录</td></tr>';
@@ -656,8 +712,31 @@ function renderAsset(){
       <td>${esc(w.name)}</td><td>${esc(w.type)}</td>
       <td class="num">${fmt(w.principal)}</td><td class="num in">+${fmt(w.profit)}</td>
       <td class="num in">+${pct(r)}</td><td class="mini">${esc(w.end)||'-'}</td>
-      <td><button class="del" data-wdel="${w.id}">删除</button></td></tr>`;}).join('');
+      <td><button class="del" data-wedit="${w.id}">编辑</button> <button class="del" data-wdel="${w.id}">删除</button></td></tr>`;}).join('');
   wb.querySelectorAll('[data-wdel]').forEach(b=>b.onclick=()=>{state.wealth=state.wealth.filter(x=>x.id!==b.dataset.wdel);save();renderAsset();renderToday();toast('已删除');});
+  wb.querySelectorAll('[data-wedit]').forEach(b=>b.onclick=()=>editWealth(b.dataset.wedit));
+  // 活期表
+  const db=document.getElementById('depositBody');
+  if(!state.deposit.length)db.innerHTML='<tr><td colspan="4" class="empty">暂无活期存款</td></tr>';
+  else db.innerHTML=state.deposit.map(x=>`<tr>
+      <td>${esc(x.name)}</td><td>${esc(x.bank)||'-'}</td><td class="num">${fmt(x.balance)}</td>
+      <td><button class="del" data-dedit="${x.id}">编辑</button> <button class="del" data-ddel="${x.id}">删除</button></td></tr>`).join('');
+  db.querySelectorAll('[data-ddel]').forEach(b=>b.onclick=()=>{state.deposit=state.deposit.filter(x=>x.id!==b.dataset.ddel);save();renderAsset();renderToday();toast('已删除');});
+  db.querySelectorAll('[data-dedit]').forEach(b=>b.onclick=()=>editDeposit(b.dataset.dedit));
+  // 黄金表
+  const gb=document.getElementById('goldBody');
+  if(!state.gold.length)gb.innerHTML='<tr><td colspan="7" class="empty">暂无黄金投资</td></tr>';
+  else gb.innerHTML=state.gold.map(x=>{const v=x.grams*x.price,p=x.grams*(x.price-x.cost);
+    return `<tr>
+      <td>${esc(x.name)}</td>
+      <td class="num">${num(x.grams)}</td>
+      <td class="num">${num(x.cost)}</td>
+      <td class="num">${num(x.price)}</td>
+      <td class="num">${fmt(v)}</td>
+      <td class="num ${p>=0?'in':'out'}">${p>=0?'+':'-'}${fmt(Math.abs(p))}</td>
+      <td><button class="del" data-gedit="${x.id}">编辑</button> <button class="del" data-gdel="${x.id}">删除</button></td></tr>`;}).join('');
+  gb.querySelectorAll('[data-gdel]').forEach(b=>b.onclick=()=>{state.gold=state.gold.filter(x=>x.id!==b.dataset.gdel);save();renderAsset();renderToday();toast('已删除');});
+  gb.querySelectorAll('[data-gedit]').forEach(b=>b.onclick=()=>editGold(b.dataset.gedit));
   // 同步信息
   const synced=state.funds.filter(f=>f.lastSync);
   document.getElementById('syncInfo').textContent=synced.length?('最近同步：'+new Date(Math.max(...synced.map(f=>f.lastSync))).toLocaleString('zh-CN')):'从未同步';
@@ -687,7 +766,7 @@ function renderBudget(){
 }
 
 function renderDataBanner(){
-  const total=state.txns.length+state.funds.length+state.wealth.length;
+  const total=state.txns.length+state.funds.length+state.wealth.length+state.deposit.length+state.gold.length;
   const b=document.getElementById('dataBanner');
   if(total>=30){b.style.display='flex';document.getElementById('dataBannerTxt').textContent='数据已积累 '+total+' 条，建议导出 JSON 备份，避免意外丢失。';}
   else b.style.display='none';
@@ -736,8 +815,8 @@ function switchView(v){
   if(v==='asset'&&firstAssetRender){
     firstAssetRender=false;
     setTimeout(()=>{
-      const ta=document.getElementById('statTotalAssets');if(ta)countUp(ta,totalFundValue()+totalWealthPrincipal(),650);
-      const tp=document.getElementById('statTotalProfit');if(tp)countUp(tp,totalFundProfit()+totalWealthProfit(),650,(x)=>(x>=0?'+':'')+fmt(x));
+      const ta=document.getElementById('statTotalAssets');if(ta)countUp(ta,totalFundValue()+totalWealthPrincipal()+totalDepositBalance()+totalGoldValue(),650);
+      const tp=document.getElementById('statTotalProfit');if(tp)countUp(tp,totalFundProfit()+totalWealthProfit()+totalGoldProfit(),650,(x)=>(x>=0?'+':'')+fmt(x));
     },90);
   }
 }
@@ -762,35 +841,123 @@ function addTxn(){
 }
 document.getElementById('btnAddTxn').onclick=addTxn;
 
+let editFundId=null;
 function addFund(){
   const code=document.getElementById('fundCode').value.trim();
   const name=document.getElementById('fundName').value.trim();
   const shares=Number(document.getElementById('fundShares').value);
   const cost=Number(document.getElementById('fundCost').value);
+  if(editFundId){
+    const f=state.funds.find(x=>x.id===editFundId);
+    if(f){f.code=code;f.name=name||code;f.shares=shares;f.costNav=cost;}
+    editFundId=null;resetFundForm();save();renderAsset();renderToday();toast('基金已更新');
+    return;
+  }
   if(!code){toast('请输入基金代码');return;}
   if(!shares||shares<=0){toast('请输入持有份额');return;}
   state.funds.push({id:uid(),code,name:name||code,shares,costNav:cost,lastNav:null,lastNavDate:null,lastSync:0});
-  save();renderAsset();renderToday();
-  ['fundCode','fundName','fundShares','fundCost'].forEach(id=>document.getElementById(id).value='');
+  save();renderAsset();renderToday();resetFundForm();
   toast('基金已添加，记得点同步');
+}
+function resetFundForm(){['fundCode','fundName','fundShares','fundCost'].forEach(id=>document.getElementById(id).value='');document.getElementById('btnAddFund').textContent='添加';}
+function editFund(id){const f=state.funds.find(x=>x.id===id);if(!f)return;editFundId=id;
+  document.getElementById('fundCode').value=f.code;
+  document.getElementById('fundName').value=f.name;
+  document.getElementById('fundShares').value=f.shares;
+  document.getElementById('fundCost').value=f.costNav;
+  document.getElementById('btnAddFund').textContent='更新';
+  window.scrollTo({top:document.getElementById('btnAddFund').offsetTop-120,behavior:'smooth'});
 }
 document.getElementById('btnAddFund').onclick=addFund;
 document.getElementById('btnSync').onclick=syncAllFunds;
 
+let editWealthId=null;
 function addWealth(){
   const name=document.getElementById('wName').value.trim();
   const type=document.getElementById('wType').value.trim();
   const principal=Number(document.getElementById('wPrincipal').value);
   const profit=Number(document.getElementById('wProfit').value);
   const end=document.getElementById('wEnd').value;
+  if(editWealthId){
+    const w=state.wealth.find(x=>x.id===editWealthId);
+    if(w){w.name=name;w.type=type||'理财';w.principal=principal;w.profit=profit||0;w.end=end||'';}
+    editWealthId=null;resetWealthForm();save();renderAsset();renderToday();toast('理财已更新');
+    return;
+  }
   if(!name){toast('请输入产品名称');return;}
   if(!principal||principal<=0){toast('请输入本金');return;}
   state.wealth.push({id:uid(),name,type:type||'理财',principal,profit:profit||0,end:end||''});
-  save();renderAsset();renderToday();
-  ['wName','wType','wPrincipal','wProfit','wEnd'].forEach(id=>document.getElementById(id).value='');
+  save();renderAsset();renderToday();resetWealthForm();
   toast('理财已添加');
 }
+function resetWealthForm(){['wName','wType','wPrincipal','wProfit','wEnd'].forEach(id=>document.getElementById(id).value='');document.getElementById('btnAddWealth').textContent='添加';}
+function editWealth(id){const w=state.wealth.find(x=>x.id===id);if(!w)return;editWealthId=id;
+  document.getElementById('wName').value=w.name;
+  document.getElementById('wType').value=w.type;
+  document.getElementById('wPrincipal').value=w.principal;
+  document.getElementById('wProfit').value=w.profit;
+  document.getElementById('wEnd').value=w.end||'';
+  document.getElementById('btnAddWealth').textContent='更新';
+  window.scrollTo({top:document.getElementById('btnAddWealth').offsetTop-120,behavior:'smooth'});
+}
 document.getElementById('btnAddWealth').onclick=addWealth;
+
+/* 活期存款：增 / 改 / 删 */
+let editDepositId=null;
+function addDeposit(){
+  const name=document.getElementById('depName').value.trim();
+  const bank=document.getElementById('depBank').value.trim();
+  const balance=Number(document.getElementById('depBalance').value);
+  if(editDepositId){
+    const x=state.deposit.find(o=>o.id===editDepositId);
+    if(x){x.name=name;x.bank=bank;x.balance=balance;}
+    editDepositId=null;resetDepositForm();save();renderAsset();renderToday();toast('活期存款已更新');
+    return;
+  }
+  if(!name){toast('请输入账户名称');return;}
+  if(!balance||balance<=0){toast('请输入余额');return;}
+  state.deposit.push({id:uid(),name,bank,balance});
+  save();renderAsset();renderToday();resetDepositForm();toast('活期存款已添加');
+}
+function resetDepositForm(){['depName','depBank','depBalance'].forEach(id=>document.getElementById(id).value='');document.getElementById('btnAddDeposit').textContent='添加';}
+function editDeposit(id){const x=state.deposit.find(o=>o.id===id);if(!x)return;editDepositId=id;
+  document.getElementById('depName').value=x.name;
+  document.getElementById('depBank').value=x.bank||'';
+  document.getElementById('depBalance').value=x.balance;
+  document.getElementById('btnAddDeposit').textContent='更新';
+  window.scrollTo({top:document.getElementById('btnAddDeposit').offsetTop-120,behavior:'smooth'});
+}
+document.getElementById('btnAddDeposit').onclick=addDeposit;
+
+/* 黄金投资：增 / 改 / 删 */
+let editGoldId=null;
+function addGold(){
+  const name=document.getElementById('gName').value.trim();
+  const grams=Number(document.getElementById('gGrams').value);
+  const cost=Number(document.getElementById('gCost').value);
+  const price=Number(document.getElementById('gPrice').value);
+  if(editGoldId){
+    const x=state.gold.find(o=>o.id===editGoldId);
+    if(x){x.name=name;x.grams=grams;x.cost=cost;x.price=price;}
+    editGoldId=null;resetGoldForm();save();renderAsset();renderToday();toast('黄金投资已更新');
+    return;
+  }
+  if(!name){toast('请输入名称');return;}
+  if(!grams||grams<=0){toast('请输入克数');return;}
+  if(!cost||cost<=0){toast('请输入成本金价');return;}
+  state.gold.push({id:uid(),name,grams,cost,price:price||0});
+  save();renderAsset();renderToday();resetGoldForm();toast('黄金投资已添加');
+}
+function resetGoldForm(){['gName','gGrams','gCost','gPrice'].forEach(id=>document.getElementById(id).value='');document.getElementById('btnAddGold').textContent='添加';}
+function editGold(id){const x=state.gold.find(o=>o.id===id);if(!x)return;editGoldId=id;
+  document.getElementById('gName').value=x.name;
+  document.getElementById('gGrams').value=x.grams;
+  document.getElementById('gCost').value=x.cost;
+  document.getElementById('gPrice').value=x.price;
+  document.getElementById('btnAddGold').textContent='更新';
+  window.scrollTo({top:document.getElementById('btnAddGold').offsetTop-120,behavior:'smooth'});
+}
+document.getElementById('btnAddGold').onclick=addGold;
 
 document.getElementById('btnSetBudget').onclick=()=>{
   state.budget.month=document.getElementById('budgetMonth').value||monthStr();
@@ -811,7 +978,7 @@ document.getElementById('fileInput').onchange=e=>{
   const file=e.target.files[0];if(!file)return;
   const r=new FileReader();
   r.onload=ev=>{try{const data=JSON.parse(ev.target.result);
-    if(confirm('导入将覆盖当前全部数据，确定继续？')){state=normalize(data);save();renderAll();toast('导入成功，共 '+(state.txns.length+state.funds.length+state.wealth.length)+' 条');}
+    if(confirm('导入将覆盖当前全部数据，确定继续？')){state=normalize(data);save();renderAll();toast('导入成功，共 '+(state.txns.length+state.funds.length+state.wealth.length+state.deposit.length+state.gold.length)+' 条');}
   }catch(err){alert('文件格式错误，无法导入');}};
   r.readAsText(file);e.target.value='';
 };
@@ -828,7 +995,7 @@ document.getElementById('btnCsv').onclick=()=>{
 document.getElementById('btnClear').onclick=()=>{
   if(!confirm('确定清空全部数据？此操作不可恢复。'))return;
   if(!confirm('再次确认：将删除所有收支、基金、理财与预算数据。'))return;
-  state={txns:[],funds:[],wealth:[],budget:{month:monthStr(),amount:0},handled:{},version:1};
+  state={txns:[],funds:[],wealth:[],deposit:[],gold:[],budget:{month:monthStr(),amount:0},handled:{},version:1};
   save();renderAll();toast('已清空全部数据');
 };
 document.getElementById('btnBackup').onclick=()=>document.getElementById('btnExport').click();
@@ -868,6 +1035,25 @@ function inferCat(t,type){
   if(/电影|演出|游戏|娱乐/.test(t))return '娱乐';
   if(/房租|物业|水电|燃气|居住/.test(t))return '居住';
   return type==='in'?'工资':'其他';
+}
+function firstMoney(t){const m=(t||'').match(/([0-9][0-9,]*\.?\d*)/);return m?m[1]:null;}
+function detectAsset(text){
+  const t=text||'';const out={};
+  if(/活期|储蓄|存款|余额/.test(t)){
+    const m=firstMoney(t);const bank=(t.match(/([一-龥]{2,8}银行)/)||[])[1]||'';
+    const tail=(t.match(/尾号\s*([0-9]{4})/)||[])[1]||'';
+    if(m)out.deposit={name:(bank?bank+' ':'')+(tail?('尾号'+tail+' '):'')+'活期储蓄',bank,balance:Number(m.replace(/,/g,''))};
+  }
+  if(/黄金/.test(t)){
+    const g=(t.match(/([0-9][0-9,]*\.?\d*)\s*(克|g|G)/i)||[])[1];
+    const price=(t.match(/(金价|单价|净值|价格)[^0-9]*([0-9][0-9,]*\.?\d*)/)||[])[2];
+    if(g||price)out.gold={name:'黄金投资',grams:g?Number(g.replace(/,/g,'')):0,cost:0,price:price?Number(price.replace(/,/g,'')):0};
+  }
+  if(/理财|定期/.test(t)){
+    const p=firstMoney(t);
+    if(p)out.wealth={name:'',principal:Number(p.replace(/,/g,'')),profit:0,end:''};
+  }
+  return out;
 }
 function parseBankSms(text){
   const t=text||'';
@@ -911,6 +1097,7 @@ async function smartRecognize(){
 function renderSmartPreview(text,box,textEl){
   const r=parseBankSms(text);
   const codeM=text.match(/\b(\d{6})\b/);
+  const ast=detectAsset(text);
   let html='';
   if(r.amount>0){
     html+=`<div class="card" style="margin-top:12px;background:var(--soft)">
@@ -928,7 +1115,19 @@ function renderSmartPreview(text,box,textEl){
     html+=`<div class="card" style="margin-top:10px;background:var(--soft)"><b>识别到基金代码 ${esc(codeM[1])}</b>
       <div style="margin-top:8px"><button class="btn" id="ocFund">填入「添加基金」表单</button></div></div>`;
   }
-  if(!r.amount&&!codeM)html+='<div class="note">未识别到明确金额或基金代码，请补充文本或手动录入。</div>';
+  if(ast.deposit){
+    html+=`<div class="card" style="margin-top:10px;background:var(--soft)"><b>识别到活期存款</b><div class="mini">${esc(ast.deposit.name)} 余额 ${fmt(ast.deposit.balance)}</div>
+      <div style="margin-top:8px"><button class="btn" id="ocDeposit">填入「活期存款」表单</button></div></div>`;
+  }
+  if(ast.gold){
+    html+=`<div class="card" style="margin-top:10px;background:var(--soft)"><b>识别到黄金投资</b><div class="mini">${ast.gold.grams?ast.gold.grams+' 克 ':''}${ast.gold.price?('金价 '+num(ast.gold.price)):'（金价待补）'}</div>
+      <div style="margin-top:8px"><button class="btn" id="ocGold">填入「黄金投资」表单</button></div></div>`;
+  }
+  if(ast.wealth){
+    html+=`<div class="card" style="margin-top:10px;background:var(--soft)"><b>识别到理财</b><div class="mini">本金 ${fmt(ast.wealth.principal)}</div>
+      <div style="margin-top:8px"><button class="btn" id="ocWealth2">填入「理财持仓」表单</button></div></div>`;
+  }
+  if(!r.amount&&!codeM&&!ast.deposit&&!ast.gold&&!ast.wealth)html+='<div class="note">未识别到明确金额、基金代码或资产信息，请补充文本或手动录入。</div>';
   box.innerHTML=html;
   const sa=document.getElementById('spAdd');
   if(sa)sa.onclick=()=>{const amt=Number(document.getElementById('spAmount').value)||0;if(!amt){toast('金额为空');return;}
@@ -937,6 +1136,12 @@ function renderSmartPreview(text,box,textEl){
     box.innerHTML='';if(textEl)textEl.value='';toast('已入账');};
   const of=document.getElementById('ocFund');
   if(of)of.onclick=()=>{document.getElementById('fundCode').value=codeM[1];switchView('asset');toast('已填入基金代码，请补全份额与成本净值');box.innerHTML='';};
+  const od=document.getElementById('ocDeposit');
+  if(od)od.onclick=()=>{document.getElementById('depName').value=ast.deposit.name;document.getElementById('depBalance').value=ast.deposit.balance;if(ast.deposit.bank)document.getElementById('depBank').value=ast.deposit.bank;switchView('asset');toast('已填入活期存款，可补全后点添加');box.innerHTML='';};
+  const og=document.getElementById('ocGold');
+  if(og)og.onclick=()=>{if(ast.gold.grams)document.getElementById('gGrams').value=ast.gold.grams;if(ast.gold.price)document.getElementById('gPrice').value=ast.gold.price;document.getElementById('gName').value=ast.gold.name;switchView('asset');toast('已填入黄金投资，请补全成本金价后点添加');box.innerHTML='';};
+  const ow=document.getElementById('ocWealth2');
+  if(ow)ow.onclick=()=>{document.getElementById('wPrincipal').value=ast.wealth.principal;switchView('asset');toast('已填入理财本金，请补全名称后点添加');box.innerHTML='';};
 }
 document.getElementById('btnSmart').onclick=smartRecognize;
 
