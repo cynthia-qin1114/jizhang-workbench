@@ -279,6 +279,47 @@
   .smartfold>summary:hover{color:var(--primary)}
   .smartfold .smartbody{padding:0 18px 18px;border-top:1px solid var(--line-soft)}
   .smartfold .smartbody .note{margin-top:10px}
+
+  /* ============ 基金卡片列表（养基宝风格 · 暗色适配） ============ */
+  .fund-list{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .fund-card{
+    background:linear-gradient(180deg,#181826,#14141f);border:1px solid var(--line);
+    border-radius:14px;padding:14px 16px;position:relative;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 2px rgba(0,0,0,.4),0 6px 18px -16px rgba(0,0,0,.7);
+    transition:border-color .18s,transform .15s;cursor:default
+  }
+  .fund-card:hover{border-color:var(--line-soft);transform:translateY(-1px)}
+  .fund-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .fund-card-name{font-size:15px;font-weight:650;color:var(--ink);flex:1;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
+  .fund-card-name .code{font-size:11.5px;color:var(--sub);font-weight:500;margin-left:4px}
+  .fund-card-value{text-align:right;flex:none}
+  .fund-card-value .amount{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .fund-card-value .date{font-size:11px;color:var(--sub);margin-top:1px}
+  .fund-card-metrics{display:flex;gap:2px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;
+    scrollbar-width:none}.fund-card-metrics::-webkit-scrollbar{display:none}
+  .fund-metric{
+    flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;
+    min-width:68px;padding:6px 8px;border-radius:8px;background:var(--surface-2)
+  }
+  .fund-metric .label{font-size:10.5px;color:var(--sub);font-weight:500;white-space:nowrap;letter-spacing:.02em}
+  .fund-metric .val{font-size:13px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .fund-metric .sub{font-size:9.5px;color:var(--sub);opacity:.65;white-space:nowrap}
+  .fund-card-actions{display:flex;gap:6px;margin-top:10px;border-top:1px solid var(--line-soft);padding-top:10px}
+  .fund-card-actions .btn{flex:1;font-size:12.5px;min-height:36px;padding:7px 10px;text-align:center;justify-content:center}
+  /* 总资产概览卡（养基宝式：大数字 + 收益） */
+  .fund-summary-card{
+    background:linear-gradient(150deg,#1a1a2e,#131322);border:1px solid var(--line);
+    border-radius:14px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 4px 16px -12px rgba(124,131,245,.25)
+  }
+  .fund-summary-left{}
+  .fund-summary-label{font-size:12px;color:var(--sub);font-weight:550;letter-spacing:.15px}
+  .fund-summary-amount{font-size:28px;font-weight:750;font-variant-numeric:tabular-nums;color:var(--ink);
+    letter-spacing:-.015em;line-height:1.15;margin-top:2px}
+  .fund-summary-right{text-align:right}
+  .fund-summary-profit-label{font-size:12px;color:var(--sub)}
+  .fund-summary-profit-val{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
 </style>
 </head>
 <body>
@@ -408,16 +449,14 @@
         <span class="mini" id="syncInfo">从未同步</span>
       </div>
       <div class="scroll">
-        <table>
-          <thead><tr><th>代码</th><th>名称</th><th class="num">份额</th><th class="num">成本净值</th><th class="num">当前净值</th><th class="num">市值</th><th class="num">收益</th><th>更新</th><th></th></tr></thead>
-          <tbody id="fundBody"></tbody>
-        </table>
+        <div class="fund-list" id="fundBody"></div>
       </div>
       <div class="form-row" style="margin-top:12px">
         <div class="field"><label>基金代码</label><input type="text" id="fundCode" placeholder="如 000051"></div>
         <div class="field"><label>名称(可选)</label><input type="text" id="fundName" placeholder="留空自动获取"></div>
         <div class="field"><label>持有份额</label><input type="number" id="fundShares" inputmode="decimal" placeholder="0" step="0.01"></div>
         <div class="field"><label>成本净值</label><input type="number" id="fundCost" inputmode="decimal" placeholder="买入均价" step="0.0001"></div>
+        <div class="field"><label>当前净值(可选)</label><input type="number" id="fundLastNav" inputmode="decimal" placeholder="留空则同步获取" step="0.0001"></div>
         <div class="field" style="flex:none"><button class="btn primary" id="btnAddFund" style="width:100%">添加</button></div>
       </div>
       <div class="note">实时净值来自天天基金公开接口（场外开放式公募基金），需联网；交易时段显示估算净值，非交易时段显示最新单位净值。货币基金无估算值。</div>
@@ -727,20 +766,51 @@ function renderAsset(){
   ].filter(s=>s.value>0);
   document.getElementById('pieAsset').innerHTML=segs.length?pieChart(segs,150):'<div class="empty">暂无可统计资产</div>';
   document.getElementById('pieLegend').innerHTML=segs.map(s=>`<span><i style="background:${s.color}"></i>${s.label} ${fmt(s.value)}（${totalAssets?Math.round(s.value/totalAssets*100):0}%）</span>`).join('');
-  // 基金表
+  // 基金卡片列表（养基宝风格）
   const fb=document.getElementById('fundBody');
-  if(!state.funds.length)fb.innerHTML='<tr><td colspan="9" class="empty">暂无基金，添加后点同步</td></tr>';
-  else fb.innerHTML=state.funds.map(f=>{const v=fundValue(f),p=fundProfit(f),r=fundProfitRate(f);const synced=f.lastNav!=null;
-    return `<tr>
-      <td>${esc(f.code)}</td><td>${esc(f.name)}</td>
-      <td class="num">${num(f.shares)}</td><td class="num">${num(f.costNav)}</td>
-      <td class="num">${synced?num(f.lastNav):'<span class="mini">未同步</span>'}</td>
-      <td class="num">${synced?fmt(v):'-'}</td>
-      <td class="num ${p>=0?'in':'out'}">${synced?(p>=0?'+':'')+fmt(p):'-'}</td>
-      <td class="mini">${synced?esc(f.lastNavDate||''):'-'}</td>
-      <td><button class="del" data-fedit="${f.id}">编辑</button> <button class="del" data-fdel="${f.id}">删除</button></td></tr>`;}).join('');
-  fb.querySelectorAll('[data-fdel]').forEach(b=>b.onclick=()=>{state.funds=state.funds.filter(x=>x.id!==b.dataset.fdel);save();renderAsset();renderToday();toast('已删除');});
-  fb.querySelectorAll('[data-fedit]').forEach(b=>b.onclick=()=>editFund(b.dataset.fedit));
+  if(!state.funds.length)fb.innerHTML='<div class="empty" style="padding:28px 0">暂无基金，添加后点同步</div>';
+  else{
+    const totalFv=totalFundValue(),totalFp=totalFundProfit();
+    // 总资产概览卡
+    let summaryHtml=`<div class="fund-summary-card">
+      <div class="fund-summary-left">
+        <div class="fund-summary-label">基金资产</div>
+        <div class="fund-summary-amount">${fmt(totalFv)}</div>
+      </div>
+      <div class="fund-summary-right">
+        <div class="fund-summary-profit-label">持有收益</div>
+        <div class="fund-summary-profit-val" style="color:${totalFp>=0?'var(--green)':'var(--red)'}">${totalFp>=0?'+':''}${fmt(totalFp)}</div>
+      </div>
+    </div>`;
+    // 按市值降序排列
+    const sorted=[...state.funds].sort((a,b)=>fundValue(b)-fundValue(a));
+    summaryHtml+=sorted.map(f=>{const v=fundValue(f),p=fundProfit(f),r=fundProfitRate(f);const synced=f.lastNav!=null;
+      const posPct=totalFv>0?(v/totalFv*100):0;
+      return `<div class="fund-card">
+        <div class="fund-card-head">
+          <div class="fund-card-name">${esc(f.name||f.code)}<span class="code">${f.code}</span></div>
+          <div class="fund-card-value">
+            <div class="amount">${synced?fmt(v):'-'}</div>
+            <div class="date">${synced?(f.lastNavDate||''):'未同步'}</div>
+          </div>
+        </div>
+        <div class="fund-card-metrics">
+          <div class="fund-metric"><span class="label">持仓占比</span><span class="val" style="color:var(--primary)">${posPct.toFixed(1)}%</span></div>
+          ${synced?`<div class="fund-metric"><span class="label">日收益率</span><span class="val" style="color:${r>=0?'var(--green)':'var(--red)'}">${r>=0?'+':''}${pct(r)}</span></div>`:''}
+          <div class="fund-metric"><span class="label">持仓收益</span><span class="val" style="color:${p>=0?'var(--green)':'var(--red)'}">${synced?(p>=0?'+':'')+fmt(p):'-'}</div>
+          <div class="fund-metric"><span class="label">收益率</span><span class="val" style="color:${r>=0?'var(--green)':'var(--red)'}">${synced?(r>=0?'+':'')+pct(r):'-'}</span></div>
+          ${synced&&f.shares?`<div class="fund-metric"><span class="label">份额</span><span class="val">${num(f.shares)}</span></div>`:''}
+          ${synced?`<div class="fund-metric"><span class="label">净值</span><span class="val">${num(f.lastNav)}</span><span class="sub">成本 ${num(f.costNav)}</span></div>`:''}
+        </div>
+        <div class="fund-card-actions">
+          <button class="btn" data-fedit="${f.id}">编辑</button>
+          <button class="btn danger" data-fdel="${f.id}">删除</button>
+        </div>
+      </div>`;}).join('');
+    fb.innerHTML=summaryHtml;
+    fb.querySelectorAll('[data-fdel]').forEach(b=>b.onclick=()=>{state.funds=state.funds.filter(x=>x.id!==b.dataset.fdel);save();renderAsset();renderToday();toast('已删除');});
+    fb.querySelectorAll('[data-fedit]').forEach(b=>b.onclick=()=>editFund(b.dataset.fedit));
+  }
   // 理财表
   const wb=document.getElementById('wealthBody');
   if(!state.wealth.length)wb.innerHTML='<tr><td colspan="7" class="empty">暂无理财记录</td></tr>';
@@ -884,24 +954,26 @@ function addFund(){
   const name=document.getElementById('fundName').value.trim();
   const shares=Number(document.getElementById('fundShares').value);
   const cost=Number(document.getElementById('fundCost').value);
+  const lastNav=Number(document.getElementById('fundLastNav').value)||null;
   if(editFundId){
     const f=state.funds.find(x=>x.id===editFundId);
-    if(f){f.code=code;f.name=name||code;f.shares=shares;f.costNav=cost;}
+    if(f){f.code=code;f.name=name||code;f.shares=shares;f.costNav=cost;if(lastNav){f.lastNav=lastNav;f.lastNavDate=todayStr();f.lastSync=Date.now();}}
     editFundId=null;resetFundForm();save();renderAsset();renderToday();toast('基金已更新');
     return;
   }
   if(!code){toast('请输入基金代码');return;}
   if(!shares||shares<=0){toast('请输入持有份额');return;}
-  state.funds.push({id:uid(),code,name:name||code,shares,costNav:cost,lastNav:null,lastNavDate:null,lastSync:0});
+  state.funds.push({id:uid(),code,name:name||code,shares,costNav:cost,lastNav:lastNav,lastNavDate:lastNav?todayStr():null,lastSync:lastNav?Date.now():0});
   save();renderAsset();renderToday();resetFundForm();
-  toast('基金已添加，记得点同步');
+  toast(lastNav?'基金已添加（含当前净值）':'基金已添加，记得点同步');
 }
-function resetFundForm(){['fundCode','fundName','fundShares','fundCost'].forEach(id=>document.getElementById(id).value='');document.getElementById('btnAddFund').textContent='添加';}
+function resetFundForm(){['fundCode','fundName','fundShares','fundCost','fundLastNav'].forEach(id=>document.getElementById(id).value='');document.getElementById('btnAddFund').textContent='添加';}
 function editFund(id){const f=state.funds.find(x=>x.id===id);if(!f)return;editFundId=id;
   document.getElementById('fundCode').value=f.code;
   document.getElementById('fundName').value=f.name;
   document.getElementById('fundShares').value=f.shares;
   document.getElementById('fundCost').value=f.costNav;
+  document.getElementById('fundLastNav').value=f.lastNav||'';
   document.getElementById('btnAddFund').textContent='更新';
   window.scrollTo({top:document.getElementById('btnAddFund').offsetTop-120,behavior:'smooth'});
 }
@@ -1076,21 +1148,57 @@ function inferCat(t,type){
 function firstMoney(t){const m=(t||'').match(/([0-9][0-9,]*\.?\d*)/);return m?m[1]:null;}
 function detectAsset(text){
   const t=text||'';const out={};
+  /* ---- 基金持仓（优先匹配，覆盖面广）---- */
+  const codeM=t.match(/\b(\d{6})\b/);
+  if(codeM){
+    const fd={};
+    // 名称（通常在代码附近或行首，取代码前的中文片段）
+    const nameM=t.match(/([^\d\n]{4,30}?)(?:\s*|\n*)\s*\d{6}/);
+    fd.name=(nameM?nameM[1].trim():'').replace(/[\s·•\-_]+$/,'')||'';
+    // 市值 / 持有金额 / 金额(元)
+    fd.marketValue=extractNum(t,/持有金额|市值|金额[（(]元[）)]|持仓市值|当前市值|资产净值|总金额|持有总值/);
+    // 份额 / 持有份额
+    fd.shares=extractNum(t,/持有份额|份额|持有[份量]|持仓份额/);
+    // 成本净值 / 持有成本 / 成本价
+    fd.costNav=extractNum(t,/成本净值|持有成本|成本价|买入均价|持仓成本|成本单价/);
+    // 当前净值 / 最新净值 / 单位净值
+    fd.lastNav=extractNum(t,/当前净值|最新净值|单位净值|最新估值|估算净值|昨净值/);
+    // 持仓收益 / 累计收益 / 收益(元)
+    fd.profit=extractNum(t,/持仓收益|累计收益|持有收益|收益[（(]元[）)]|浮动盈亏|盈亏/);
+    // 持仓收益率 / 收益率 / 持有收益率(%)
+    fd.profitRate=extractNum(t,/持仓收益率|持有收益率|收益率|收益比例|涨跌幅[^0-9]*(\d+[.\d]*%?)/);
+    // 昨日收益 / 日收益
+    fd.dayProfit=extractNum(t,/昨日收益|日收益|今日收益|当天收益/);
+    if(fd.marketValue||fd.shares||fd.profit)out.fund={code:codeM[1],...fd};
+  }
+  /* ---- 活期存款 ---- */
   if(/活期|储蓄|存款|余额/.test(t)){
     const m=firstMoney(t);const bank=(t.match(/([一-龥]{2,8}银行)/)||[])[1]||'';
     const tail=(t.match(/尾号\s*([0-9]{4})/)||[])[1]||'';
     if(m)out.deposit={name:(bank?bank+' ':'')+(tail?('尾号'+tail+' '):'')+'活期储蓄',bank,balance:Number(m.replace(/,/g,''))};
   }
+  /* ---- 黄金 ---- */
   if(/黄金/.test(t)){
     const g=(t.match(/([0-9][0-9,]*\.?\d*)\s*(克|g|G)/i)||[])[1];
     const price=(t.match(/(金价|单价|净值|价格)[^0-9]*([0-9][0-9,]*\.?\d*)/)||[])[2];
     if(g||price)out.gold={name:'黄金投资',grams:g?Number(g.replace(/,/g,'')):0,cost:0,price:price?Number(price.replace(/,/g,'')):0};
   }
+  /* ---- 理财 ---- */
   if(/理财|定期/.test(t)){
     const p=firstMoney(t);
     if(p)out.wealth={name:'',principal:Number(p.replace(/,/g,'')),profit:0,end:''};
   }
   return out;
+}
+/* 从文本中按关键词提取数字（支持千分位逗号、小数、负号） */
+function extractNum(text,...kws){
+  for(const kw of kws){
+    const i=text.indexOf(kw);
+    if(i<0)continue;
+    const after=text.slice(i+kw.length).match(/[-+]?\s*[0-9][0-9,]*\.?\d*/);
+    if(after)return Number(after[0].replace(/,/g,'').replace(/\s+/g,''));
+  }
+  return null;
 }
 function parseBankSms(text){
   const t=text||'';
@@ -1160,9 +1268,22 @@ function renderAssetSmart(text,box,textEl){
   const codeM=text.match(/\b(\d{6})\b/);
   const ast=detectAsset(text);
   let html='';
-  if(codeM){
-    html+=`<div class="card" style="margin-top:12px;background:var(--soft)"><b>识别到基金代码 ${esc(codeM[1])}</b>
-      <div style="margin-top:8px"><button class="btn" id="ocFund">填入「基金持仓」表单</button></div></div>`;
+  if(codeM||ast.fund){
+    const fund=ast.fund||{code:codeM[1]};
+    const lines=[];
+    if(fund.name)lines.push(`名称：${esc(fund.name)}`);
+    if(fund.marketValue)lines.push(`市值：<b>${fmt(fund.marketValue)}</b>`);
+    if(fund.shares)lines.push(`份额：${num(fund.shares)}`);
+    if(fund.costNav)lines.push(`成本净值：${num(fund.costNav)}`);
+    if(fund.lastNav)lines.push(`当前净值：${num(fund.lastNav)}`);
+    if(fund.profit!=null)lines.push(`持仓收益：<b style="color:${fund.profit>=0?'var(--green)':'var(--red)'}">${fund.profit>=0?'+':''}${fmt(fund.profit)}</b>`);
+    if(fund.profitRate!=null)lines.push(`收益率：<b style="color:${fund.profitRate>=0?'var(--green)':'var(--red)'}">${fund.profitRate>=0?'+':''}${pct(fund.profitRate)}</b>`);
+    if(fund.dayProfit!=null)lines.push(`昨日收益：<b style="color:${fund.dayProfit>=0?'var(--green)':'var(--red)'}">${fund.dayProfit>=0?'+':''}${fmt(fund.dayProfit)}</b>`);
+    html+=`<div class="card" style="margin-top:12px;background:var(--soft)">
+      <div class="row-between"><b>📊 识别到基金 ${esc(fund.code)}${fund.name?' · '+esc(fund.name):''}</b><span class="mini">已提取以下信息</span></div>
+      <div class="mini" style="margin-top:8px;line-height:1.9">${lines.join('<br>')||'仅识别到代码，请补全份额与成本'}</div>
+      <div style="margin-top:10px"><button class="btn primary" id="ocFund">填入「基金持仓」表单</button></div>
+    </div>`;
   }
   if(ast.deposit){
     html+=`<div class="card" style="margin-top:10px;background:var(--soft)"><b>识别到活期存款</b><div class="mini">${esc(ast.deposit.name)} 余额 ${fmt(ast.deposit.balance)}</div>
@@ -1179,7 +1300,16 @@ function renderAssetSmart(text,box,textEl){
   if(!codeM&&!ast.deposit&&!ast.gold&&!ast.wealth)html+='<div class="note">未识别到基金代码或资产信息，请补充文本或手动录入。</div>';
   box.innerHTML=html;
   const of=document.getElementById('ocFund');
-  if(of)of.onclick=()=>{document.getElementById('fundCode').value=codeM[1];document.getElementById('fundCode').focus();box.innerHTML='';toast('已填入基金代码，请补全份额与成本净值');};
+  if(of)of.onclick=()=>{
+    const fund=ast.fund||{code:codeM[1]};
+    document.getElementById('fundCode').value=fund.code;
+    if(fund.name)document.getElementById('fundName').value=fund.name;
+    if(fund.shares)document.getElementById('fundShares').value=fund.shares;
+    if(fund.costNav)document.getElementById('fundCost').value=fund.costNav;
+    if(fund.lastNav)document.getElementById('fundLastNav').value=fund.lastNav;
+    box.innerHTML='';
+    toast(fund.lastNav?'已填入基金信息（含当前净值），核对后点添加即可显示市值/收益':'已填入基金代码/份额等，请补全后点添加或同步净值');
+  };
   const od=document.getElementById('ocDeposit');
   if(od)od.onclick=()=>{document.getElementById('depName').value=ast.deposit.name;document.getElementById('depBalance').value=ast.deposit.balance;if(ast.deposit.bank)document.getElementById('depBank').value=ast.deposit.bank;box.innerHTML='';toast('已填入活期存款，可补全后点添加');};
   const og=document.getElementById('ocGold');
