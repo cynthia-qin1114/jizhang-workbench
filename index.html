@@ -1146,29 +1146,52 @@ function inferCat(t,type){
   return type==='in'?'工资':'其他';
 }
 function firstMoney(t){const m=(t||'').match(/([0-9][0-9,]*\.?\d*)/);return m?m[1]:null;}
+/* 基金名称提取：在乱序 OCR 中从 6 位代码两侧双向裁剪 UI 噪音词，保留真实名称 */
+function extractFundName(t, code){
+  const ci=t.indexOf(code);
+  if(ci<0)return '';
+  const before=t.slice(Math.max(0,ci-40),ci); // 代码前最多 40 字
+  // 名称左侧噪音词（用于「左截断」：取最靠右噪音词之右；注意"代码"标签在名称右侧，不参与左截断；"指数"是基金名常见成分，非噪音）
+  const leftNoise=['设置','资产','详情','风险','定投','买入','该产品','机构','限制','单日','自动','去','中高','查看','更多','交易','记录','我的','业绩','走势','累计','确认','份额','预计','星期','金额','元','持仓','昨日','持有','收益率','收益','净值','估值','支付宝','蚂蚁','基金','名称','财富'];
+  let l=0;
+  for(const nz of leftNoise){const i=before.lastIndexOf(nz);if(i>=0&&i>=l)l=i+nz.length;}
+  let s=before.slice(l);
+  // 名称右侧噪音词（用于「右截断」：取最靠左噪音词之左）
+  const rightNoise=['代码','风险','定投','设置','资产','详情','买入','该产品','机构','限制','单日','自动','去','中高','查看','更多','交易','记录','我的','业绩','走势','累计','确认','份额','预计','星期','金额','元','持仓','昨日','持有','收益率','收益','净值','估值','支付宝','蚂蚁','基金','名称','财富'];
+  let r=s.length;
+  for(const nz of rightNoise){const i=s.indexOf(nz);if(i>=0&&i<r)r=i;}
+  s=s.slice(0,r);
+  // 仅去头尾残留符号（保留名称中间的括号，如"(QDII)"）；去掉前导非名称字符
+  s=s.replace(/^[\s·•\-_@#$%&*()（）【】\[\]{}|\\\/<>""'':;！？。,.\u0000-\u001f]+/,'')
+    .replace(/[\s·•\-_@#$%&*()（）【】\[\]{}|\\\/<>""'':;！？。,.\u0000-\u001f]+$/,'')
+    .replace(/^[^一-龥A-Za-z(（]/,'');
+  return s.length>=2?s:'';
+}
 function detectAsset(text){
   const t=text||'';const out={};
   /* ---- 基金持仓（优先匹配，覆盖面广）---- */
   const codeM=t.match(/\b(\d{6})\b/);
   if(codeM){
     const fd={};
-    // 名称（通常在代码附近或行首，取代码前的中文片段）
-    const nameM=t.match(/([^\d\n]{4,30}?)(?:\s*|\n*)\s*\d{6}/);
-    fd.name=(nameM?nameM[1].trim():'').replace(/[\s·•\-_]+$/,'')||'';
-    // 市值 / 持有金额 / 金额(元)
-    fd.marketValue=extractNum(t,/持有金额|市值|金额[（(]元[）)]|持仓市值|当前市值|资产净值|总金额|持有总值/);
-    // 份额 / 持有份额
-    fd.shares=extractNum(t,/持有份额|份额|持有[份量]|持仓份额/);
-    // 成本净值 / 持有成本 / 成本价
-    fd.costNav=extractNum(t,/成本净值|持有成本|成本价|买入均价|持仓成本|成本单价/);
-    // 当前净值 / 最新净值 / 单位净值
-    fd.lastNav=extractNum(t,/当前净值|最新净值|单位净值|最新估值|估算净值|昨净值/);
-    // 持仓收益 / 累计收益 / 收益(元)
-    fd.profit=extractNum(t,/持仓收益|累计收益|持有收益|收益[（(]元[）)]|浮动盈亏|盈亏/);
-    // 持仓收益率 / 收益率 / 持有收益率(%)
-    fd.profitRate=extractNum(t,/持仓收益率|持有收益率|收益率|收益比例|涨跌幅[^0-9]*(\d+[.\d]*%?)/);
-    // 昨日收益 / 日收益
-    fd.dayProfit=extractNum(t,/昨日收益|日收益|今日收益|当天收益/);
+    // 名称：从代码两侧双向裁剪 UI 噪音词，保留真实基金名（容忍乱码与数字，如"100""QDII"）
+    fd.name=extractFundName(t,codeM[1]);
+    /* ===== 核心改进：双层提取（关键词匹配 + 格式兜底）===== */
+    // 第一层：关键词匹配（容错版，忽略空格和常见乱码）
+    // 注意：精确关键词优先于宽泛关键词，避免"累计收益"抢先匹配
+    fd.marketValue=extractNumFuzzy(t,/金额|市值|资产净值|总金额|持有总值|持仓市值/);
+    fd.shares=extractNumFuzzy(t,/持有份额|份[额量]|持仓份额/);
+    fd.costNav=extractNumFuzzy(t,/成本净值|持有成本|成本价|买入均价|持仓成本|成本单价/);
+    fd.lastNav=extractNumFuzzy(t,/当前净值|最新净值|单位净值|最新估值|估算净值|昨净/);
+    // 收益类字段：OCR 乱序下关键词匹配不可靠，故以「格式兜底」为主、关键词为辅
+    fd.profitRate=extractRateFuzzy(t,/收益率|持有收益率|持仓收益率|收益比例/); // 收益率优先用 % 格式，最可靠
+    // 持有收益 / 昨日收益：用格式特征 + 大小排序推断（排除带%的收益率）
+    const gp=guessProfit(t);
+    const gdp=guessDayProfit(t);
+    fd.profit = gp!=null ? gp : extractNumFuzzy(t,/持仓收益|持有收益|浮动盈亏|盈亏/);
+    fd.dayProfit = gdp!=null ? gdp : extractNumFuzzy(t,/昨日收益|日收益|今日收益|当天收益/);
+    if(!fd.profitRate&&fd.profit==null)fd.profitRate=guessRate(t);
+    // 第二层：格式兜底——当关键词匹配失败时，从所有数字中按格式特征推断市值
+    if(!fd.marketValue)fd.marketValue=guessMarketValue(t);
     if(fd.marketValue||fd.shares||fd.profit)out.fund={code:codeM[1],...fd};
   }
   /* ---- 活期存款 ---- */
@@ -1190,7 +1213,120 @@ function detectAsset(text){
   }
   return out;
 }
-/* 从文本中按关键词提取数字（支持千分位逗号、小数、负号） */
+/* ===== 模糊关键词数字提取（容错版：忽略空格/乱码，扩大搜索范围）===== */
+function extractNumFuzzy(text, kwRe){
+  // 将文本中的空格、常见乱码字符标准化后再搜索
+  const normalized=text.replace(/\s+/g,'').replace(/[O0o](?=\))/g,')').replace(/[@#\$%&*]/g,'');
+  // 尝试每个关键词变体（原词 / 去空格 / 单字拆分容错）
+  const kws=kwRe.source.replace(/\|/g,'|').split('|').filter(Boolean);
+  for(const kw of kws){
+    if(!kw)continue;
+    // 策略1：直接在原文中找（向后搜 60 字符）
+    let r=tryExtractAfter(text,kw,60);
+    if(r!=null)return r;
+    // 策略2：在标准化文本中找
+    const nKw=kw.replace(/\s/g,'');
+    let ni=normalized.indexOf(nKw);
+    if(ni>=0){
+      const after=normalized.slice(ni+nKw.length,ni+nKw.length+60).match(/[-+]?\s*[0-9][0-9,]*\.?\d*/);
+      if(after)return cleanNum(after[0]);
+    }
+    // 策略3：逐字宽松匹配（允许关键词中间夹 1-2 个乱码）
+    r=tryLooseMatch(text,kw);
+    if(r!=null)return r;
+  }
+  return null;
+}
+function extractRateFuzzy(text, kwRe){
+  /* 策略0（最高优先）：直接在全文找 XX.XX% 格式——最可靠 */
+  const pctMatch=text.match(/([+-]?\s*[0-9]+\.?\d*)\s*%/);
+  if(pctMatch){
+    const v=parseFloat(pctMatch[1]);
+    if(v>=-200&&v<=200&&v!==0)return v;
+  }
+  const kws=kwRe.source.replace(/\|/g,'|').split('|').filter(Boolean);
+  for(const kw of kws){
+    if(!kw)continue;
+    let r=tryExtractAfter(text,kw,40);
+    if(r!=null)return r;
+    // 搜百分比格式：XX.XX%
+    const nText=text.replace(/\s+/g,'');
+    const nKw=kw.replace(/\s/g,'');
+    let ni=nText.indexOf(nKw);
+    if(ni>=0){
+      const after=nText.slice(ni+nKw.length,ni+nKw.length+40).match(/[-+]?\s*[0-9][0-9,]*\.?\d*\s*%/);
+      if(after)return cleanNum(after[0].replace('%',''));
+    }
+    r=tryLooseMatch(text,kw);
+    if(r!=null)return r;
+  }
+  return null;
+}
+function tryExtractAfter(text,kw,maxLen){
+  maxLen=maxLen||50;
+  let i=text.indexOf(kw);
+  if(i<0)return null;
+  const after=text.slice(i+kw.length,i+kw.length+maxLen);
+  const m=after.match(/[-+]?\s*[0-9][0-9,]*\.?\d*/);
+  return m?cleanNum(m[0]):null;
+}
+function tryLooseMatch(text,kw){
+  // 允许关键词中每两个字符间有 0-2 个干扰字符
+  const chars=[...kw];
+  let pi=0;
+  for(let ci=0;ci<chars.length;ci++){
+    const fi=text.indexOf(chars[ci],pi);
+    if(fi<0||fi-pi>4)return null; // 距离太远不算匹配
+    pi=fi+1;
+  }
+  // 找到了宽松匹配位置，往后搜数字
+  const after=text.slice(pi,pi+50);
+  const m=after.match(/[-+]?\s*[0-9][0-9,]*\.?\d*/);
+  return m?cleanNum(m[0]):null;
+}
+function cleanNum(s){return Number((s||'').replace(/,/g,'').replace(/\s+/g,''));}
+/* ===== 格式兜底提取：当关键词完全失效时，按数字格式特征推断 ===== */
+function guessMarketValue(t){
+  /* 基金金额特征：最大的含逗号数字（如 2,144.59）或 3-7 位整数 */
+  const nums=[...t.matchAll(/(?<![.\d])([1-9]\d{0,2}(?:,\d{3})*(?:\.\d{1,2})?)(?![.\d%])/g)].map(m=>Number(m[1].replace(/,/g,'')));
+  if(nums.length===0)return null;
+  // 过滤掉明显是代码的6位纯整数、日期等
+  const valid=nums.filter(n=>n>10&&(n<100000||n>=1000000));
+  if(valid.length>0)return valid.sort((a,b)=>b-a)[0]; // 取最大值作为市值
+  // 如果没有逗号分隔的大数，取最大的合理数
+  const reasonable=nums.filter(n=>n>100&&n<10000000);
+  return reasonable.length>0?reasonable.sort((a,b)=>b-a)[0]:null;
+}
+function guessProfit(t){
+  /* 收益特征：+XX.XX 或 -XX.XX 格式（2 位小数）。排除带 % 的数字（那是收益率） */
+  const profits=[...t.matchAll(/([+-]\s*[0-9][0-9,]*\.\d{1,2})(?![%\d])/g)].map(m=>Number(m[1].replace(/,/g,'').replace(/\s/g,'')));
+  if(profits.length===0)return null;
+  const valid=profits.filter(p=>Math.abs(p)>=0.01&&Math.abs(p)<100000);
+  if(valid.length===0)return profits[0];
+  valid.sort((a,b)=>Math.abs(a)-Math.abs(b));
+  /* 排序后：最小=昨日收益，中等=持有收益，最大=累计收益 */
+  if(valid.length>=2)return valid[1]; // 持有收益=中等
+  return valid[0];
+}
+function guessRate(t){
+  /* 收益率特征：+XX.XX% 或 XX.XX% 格式 */
+  const rates=[...t.matchAll(/([+-]?\s*[0-9]+\.?\d*)\s*%/g)].map(m=>parseFloat(m[1]));
+  if(rates.length===0)return null;
+  // 收益率通常在 -100~200 之间
+  const valid=rates.filter(r=>r>=-100&&r<=200&&r!==0);
+  return valid.length>0?valid[0]:null;
+}
+function guessDayProfit(t){
+  /* 昨日收益：绝对值最小的 +XX.XX 值（排除带 % 的收益率）。仅当存在 ≥2 个收益值才判定昨日收益 */
+  const profits=[...t.matchAll(/([+-]\s*[0-9][0-9,]*\.\d{1,2})(?![%\d])/g)].map(m=>Number(m[1].replace(/,/g,'').replace(/\s/g,'')));
+  const valid=profits.filter(p=>Math.abs(p)>=0.01&&Math.abs(p)<100000);
+  if(valid.length>=2){
+    valid.sort((a,b)=>Math.abs(a)-Math.abs(b));
+    return valid[0]; // 最小 → 昨日收益
+  }
+  return null; // 单值时视为仅有持有收益，昨日收益留空由用户补全
+}
+/* ===== 旧版 extractNum 保留给非基金场景使用（银行短信等较干净的文本）===== */
 function extractNum(text,...kws){
   for(const kw of kws){
     const i=text.indexOf(kw);
